@@ -361,3 +361,204 @@ git version 2.50.1 (Apple Git-155)
     2. Change Plan 04 so the skills manager is not a pure third-party plugin, but a small host-supported plugin with dedicated IPC for scan/install/uninstall.
     3. If pushing under current SDK, scope v0.1 down to scanner + catalog preview only; defer installer/uninstaller until SDK support exists.
   - After that decision, rerun a runtime probe in a separate task where writing a temporary probe plugin and launching `npm run dev` are explicitly allowed.
+
+---
+
+## §A0.7 Plan 05 Op1 Discovery (2026-05-29)
+
+Note: the prompt says "11 条 grep / ls 查询", but the provided code block contains 7 commands. I executed those 7 commands exactly, in order, read-only against `~/Desktop/Continuo`.
+
+### Raw command stdout
+
+#### 1. PluginManager / instance search
+
+```text
+/Users/RiGang/Desktop/Continuo/src/plugins/README.md:17:| `PluginManager.ts` | Plugin lifecycle: install → load manifest → ensure permissions → import main → activate. |
+/Users/RiGang/Desktop/Continuo/src/plugins/README.md:58:PluginManager.activate(p)
+/Users/RiGang/Desktop/Continuo/src/plugins/README.md:63:PluginManager.deactivate(p)
+/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:68:export class PluginManager {
+```
+
+#### 2. BrowserWindow / webPreferences / preload search
+
+```text
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-stdio-server.service.ts:19:import { BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-stdio-server.service.ts:151:  // Continuo private notification:proxy sends caller BrowserWindow context
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-stdio-server.service.ts:167:          const win = BrowserWindow.fromId(id);
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-stdio-server.service.ts:209:    const wins = BrowserWindow.getAllWindows();
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-stdio-server.service.ts:210:    let fallback: BrowserWindow | null = null;
+/Users/RiGang/Desktop/Continuo/electron/main/services/terminal.service.ts:5:import { BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/services/terminal.service.ts:292:  win: BrowserWindow,
+/Users/RiGang/Desktop/Continuo/electron/main/services/terminal-sessions.service.ts:23:// - removeByOwner:BrowserWindow 'closed' 事件 → cleanupAllForWindow → removeByOwner;
+/Users/RiGang/Desktop/Continuo/electron/main/services/terminal-sessions.service.ts:45:  // Issue #28 Phase 1:owner BrowserWindow.id。renderer 不自报,
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:9:import { BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:24:function pickMainWindow(): BrowserWindow | null {
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:25:  const wins = BrowserWindow.getAllWindows();
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:50:      ? BrowserWindow.fromId(info.ownerWindowId)
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:1:import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:63:const PRELOAD = path.join(__dirname, '../preload/index.cjs');
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:76:  preload: PRELOAD,
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:91:  const win = BrowserWindow.fromWebContents(event.sender);
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:98:  const senderWin = BrowserWindow.fromWebContents(event.sender);
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:104:function requestWindowFlush(win: BrowserWindow): Promise<void> {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:128:function wireWindowCloseFlush(win: BrowserWindow): void {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:143:// 同源 → allow + 注入我们的 preload + 安全 webPreferences。
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:160:      overrideBrowserWindowOptions: {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:168:        webPreferences: COMMON_WEB_PREFERENCES,
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:187:  const win = new BrowserWindow({
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:192:    webPreferences: COMMON_WEB_PREFERENCES,
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:341:  const wins = BrowserWindow.getAllWindows();
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:370:    const wins = BrowserWindow.getAllWindows();
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:428:  const win = BrowserWindow.fromId(ctx.ownerWindowId);
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:616:  let win: BrowserWindow;
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:671:    if (BrowserWindow.getAllWindows().length === 0) {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:682:  const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-tools-terminal.ts:138:   * `electron/main/ipc/terminal.ipc.ts` 的 createHandler 包一层(以脱离 BrowserWindow 上下文)。
+/Users/RiGang/Desktop/Continuo/electron/main/README.md:3:The Electron main-process side of Continuo. Owns the OS-level surface (file system, child processes, PTYs, native windows, MCP socket) and exposes a narrow IPC contract to the renderer + preload.
+/Users/RiGang/Desktop/Continuo/electron/main/README.md:17:`electron/shared/` (sibling) holds the channel-constant + envelope code that both main and preload import; it's the canonical IPC schema source.
+/Users/RiGang/Desktop/Continuo/electron/main/README.md:43:Use `safeHandleWithCtx` when the handler needs the raw `IpcMainInvokeEvent` (typically to look up the sender window via `BrowserWindow.fromWebContents(event.sender)`).
+/Users/RiGang/Desktop/Continuo/electron/main/README.md:72:2. Define a Zod schema for the input (export it from the same file so preload + renderer can re-derive types).
+/Users/RiGang/Desktop/Continuo/electron/main/ipc.ts:1:import { app, BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc.ts:48:      const win = BrowserWindow.fromWebContents(event.sender);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc.ts:71:      const win = BrowserWindow.fromWebContents(event.sender);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugins.ipc.ts:4:import { app, BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugins.ipc.ts:87:    for (const win of BrowserWindow.getAllWindows()) {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/window.ipc.ts:9:import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/window.ipc.ts:91:      const win = BrowserWindow.fromWebContents(event.sender);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:9:import { BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:33: * - payload.windowId 存在 → BrowserWindow.fromId(id).webContents.send(...)
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:34: * - payload.windowId 缺省 → broadcast 到全部 BrowserWindow(沿用 topic-09 ingress filter)
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:42:    const win = BrowserWindow.fromId(payload.windowId);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:49:  for (const w of BrowserWindow.getAllWindows()) {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/fs.ipc.ts:1:import { BrowserWindow, dialog, shell } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/fs.ipc.ts:76:// 类型导出(给 preload / renderer 用)
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/fs.ipc.ts:179:  for (const w of BrowserWindow.getAllWindows()) {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:3:// registerTerminalIpc() 真注册 + 订阅 sessions_changed 广播给所有 BrowserWindow。
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:5:import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:118:function senderWindowOrThrow(event: IpcMainInvokeEvent): BrowserWindow {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:119:  const win = BrowserWindow.fromWebContents(event.sender);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:131:  win: BrowserWindow,
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:152:    win: BrowserWindow,
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:244:  return (input: IdOnlyInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:256:  return (input: UpdateCwdInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:271:  return (input: WriteInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:284:  return (input: ResizeInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:297:  return (input: IdOnlyInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:310:  return (input: IdOnlyInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:326:  return (input: AttachRejectedInput, win: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:357:    handler: (input: I, win: BrowserWindow) => unknown | Promise<unknown>,
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:449:    for (const w of BrowserWindow.getAllWindows()) {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:462:  const attachClosed = (w: BrowserWindow): void => {
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:467:  for (const w of BrowserWindow.getAllWindows()) attachClosed(w);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/i18n.ipc.ts:1:import { BrowserWindow } from 'electron';
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/i18n.ipc.ts:21:  for (const w of BrowserWindow.getAllWindows()) {
+```
+
+#### 3. additionalArguments / env / argv search
+
+```text
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:354:  if (process.argv.length >= 2) {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:356:      path.resolve(process.argv[1]!),
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:662:    const url = process.argv.find((a) => a.startsWith(`${PROTOCOL}://`));
+```
+
+#### 4. PromptStore / requestId / nonce search
+
+```text
+/Users/RiGang/Desktop/Continuo/src/plugins/plugin-mcp-invoke-bridge.ts:36:          requestId: payload.requestId,
+/Users/RiGang/Desktop/Continuo/src/plugins/plugin-mcp-invoke-bridge.ts:44:          requestId: payload.requestId,
+```
+
+#### 5. createWindow / BrowserWindow / webContents / sandbox / nodeIntegration search
+
+```text
+/Users/RiGang/Desktop/Continuo/electron/main/services/mcp-stdio-server.service.ts:213:      const url = w.webContents.getURL();
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:29:    const url = w.webContents.getURL();
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:55:    !targetWin.webContents.getURL().includes('popout=1')
+/Users/RiGang/Desktop/Continuo/electron/main/services/agent-auth.service.ts:76:    win.webContents.send(AGENT_AUTH_CHANNELS.REQUEST, payload);
+/Users/RiGang/Desktop/Continuo/electron/main/services/terminal.service.ts:197:  // Baseline shape: webContents.send('terminal:exit', id, { exitCode, signal })
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:78:  sandbox: true,
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:79:  nodeIntegration: false,
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:121:      win.webContents.send('layout:flush-request', { windowId: win.id });
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:187:  const win = new BrowserWindow({
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:211:  win.webContents.setWindowOpenHandler(windowOpenHandler);
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:321:  win.webContents.once('did-finish-load', () => {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:322:    if (!win.webContents.getURL().includes('popout=1')) return;
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:324:    win.webContents.on('before-input-event', (event, input) => {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:348:      win.webContents.send(PLUGINS_CHANNELS.PROTOCOL_URL, { url });
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:651:    win.webContents.once('did-finish-load', () => {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:653:        win.webContents.send(PLUGINS_CHANNELS.PROTOCOL_URL, {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:664:      win.webContents.once('did-finish-load', () => {
+/Users/RiGang/Desktop/Continuo/electron/main/index.ts:665:        win.webContents.send(PLUGINS_CHANNELS.PROTOCOL_URL, { url });
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:33: * - payload.windowId 存在 → BrowserWindow.fromId(id).webContents.send(...)
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:44:      win.webContents.send(NOTIFY_CHANNELS.PUSH, payload);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/notify.ipc.ts:51:      w.webContents.send(NOTIFY_CHANNELS.PUSH, payload);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/i18n.ipc.ts:23:      w.webContents.send(I18N_CHANNELS.CHANGED, payload);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/window.ipc.ts:34:async function createWindowHandler(
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/window.ipc.ts:82:    createWindowHandler,
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugin-mcp.ipc.ts:2:// 把 renderer ↔ main bridge 的内存接口转成真 ipcMain handle / on + webContents.send。
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugin-mcp.ipc.ts:9://   plugin-mcp:invoke (main → renderer, webContents.send)
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugin-mcp.ipc.ts:50: * - send 用 webContents.fromId(wcId).send(...);wc destroyed → handleWebContentsGone
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugin-mcp.ipc.ts:69:      const wc = webContents.fromId(owner.wcId);
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/plugins.ipc.ts:89:        win.webContents.send(PLUGINS_CHANNELS.CHANGED, { id });
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/terminal.ipc.ts:451:      w.webContents.send(
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/fs.ipc.ts:180:    if (w.webContents.isDestroyed()) continue;
+/Users/RiGang/Desktop/Continuo/electron/main/ipc/fs.ipc.ts:181:    w.webContents.send(FS_CHANNELS.DIR_CHANGED, { path });
+```
+
+#### 6. plugin load / eval isolation search
+
+```text
+/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:5:import { loadPluginModule } from './loader';
+/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:276:    const loaded = await loadPluginModule({
+/Users/RiGang/Desktop/Continuo/src/plugins/loader.ts:60:export async function loadPluginModule(
+```
+
+#### 7. per-plugin host file search
+
+```text
+no per-plugin host file
+```
+
+### Required findings
+
+① PluginManager 创建 plugin instance 的精确点:
+
+- Grep evidence: `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:68:export class PluginManager {` and `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:276:    const loaded = await loadPluginModule({`.
+- Confirming read-only code evidence: `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:321-329`:
+
+```ts
+const Ctor = loaded.PluginClass as any;
+const scopedApp = createScopedApp(
+  this.app,
+  entry.id,
+  this.host.permissionStore ?? null,
+);
+const instance: Plugin = new Ctor(scopedApp, entry.manifest);
+```
+
+② BrowserWindow webPreferences 是否支持 additionalArguments（含 token 注入机制候选）:
+
+- Current code does not use `additionalArguments`. Grep #3 stdout has only `process.argv` matches at `/Users/RiGang/Desktop/Continuo/electron/main/index.ts:354`, `:356`, and `:662`; there is no `additionalArguments` match.
+- Current window creation uses one shared `COMMON_WEB_PREFERENCES`: grep #2 shows `/Users/RiGang/Desktop/Continuo/electron/main/index.ts:168:        webPreferences: COMMON_WEB_PREFERENCES,` and `/Users/RiGang/Desktop/Continuo/electron/main/index.ts:192:    webPreferences: COMMON_WEB_PREFERENCES,`.
+- Confirming read-only code evidence: `/Users/RiGang/Desktop/Continuo/electron/main/index.ts:75-84` defines `COMMON_WEB_PREFERENCES` with `preload`, `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, and no `additionalArguments`.
+- Token injection candidate if needed: add `additionalArguments` at the `COMMON_WEB_PREFERENCES` construction or at each BrowserWindow override site, but current topology is renderer-wide/window-wide, not per-plugin-window.
+
+③ PromptStore 当前是否支持多并发 request（requestId / nonce 是否存在）:
+
+- Grep #4 found no `PromptStore.request`, no `PromptStore.resolve`, and no `nonce`. The only request id hits in `src/plugins/` are `/Users/RiGang/Desktop/Continuo/src/plugins/plugin-mcp-invoke-bridge.ts:36` and `:44`, both forwarding `payload.requestId` for the MCP invoke bridge, not permission prompts.
+- Confirming read-only code evidence: `/Users/RiGang/Desktop/Continuo/src/plugins/permissions/promptStore.ts:1-4` states "同时只能一个 pending"; `/Users/RiGang/Desktop/Continuo/src/plugins/permissions/promptStore.ts:30-37` immediately resolves `[]` when another prompt is already pending; the state has `pending` and `resolve`, not a map keyed by `requestId` or `nonce`.
+- Conclusion: current permission PromptStore does not support multiple concurrent permission requests.
+
+④ plugin host topology:
+
+- Classification: **(b) 共享 webContents / 全局 JS realm，但有 per-plugin isolated API object → token model can be adapted to per-API-object.**
+- Evidence chain:
+  - Shared BrowserWindow/webContents: grep #5 shows the main window creation at `/Users/RiGang/Desktop/Continuo/electron/main/index.ts:187:  const win = new BrowserWindow({`; grep #2 shows this window uses `webPreferences: COMMON_WEB_PREFERENCES` at `/Users/RiGang/Desktop/Continuo/electron/main/index.ts:192`.
+  - No per-plugin host file: grep/ls #7 stdout is `no per-plugin host file`.
+  - No isolated eval realm loader: grep #6 only finds `loadPluginModule` at `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:276` and `/Users/RiGang/Desktop/Continuo/src/plugins/loader.ts:60`; no `vm.`, `isolatedRealm`, `@endo/lockdown`, or `new Function(` hit.
+  - Plugin load and instance construction happen in renderer-side plugin manager: `/Users/RiGang/Desktop/Continuo/src/main.tsx:126-133` constructs `new PluginManager(...)` and calls `userPluginManager.init()`, while `/Users/RiGang/Desktop/Continuo/src/plugins/loader.ts:57-66` uses dynamic `import(/* @vite-ignore */ url)`.
+  - Per-plugin API object exists: `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:324-329` calls `createScopedApp(this.app, entry.id, ...)` and passes that to `new Ctor(...)`; `/Users/RiGang/Desktop/Continuo/src/plugins/scoped-app.ts:151-174` returns a per-plugin `CoPluginApp` whose `fs`, `network`, `shell`, `clipboard`, `permission`, and `mcp` wrappers close over `pluginId`.
+- Implication for dl-execute: do not STOP on topology. Continue only with plan inline marking that capability tokens must bind to the per-plugin scoped API object / closures, not to BrowserWindow, preload, process args, or JS realm isolation.
+
+---
