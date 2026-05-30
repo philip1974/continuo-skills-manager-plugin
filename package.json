@@ -1,0 +1,32 @@
+{
+  "name": "continuo-skills-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "trust-gate": "bash tools/check-trust-gates.sh",
+    "trust-gates": "bash tools/check-trust-gates.sh",
+    "fixture:gen": "bash tools/generate-fixture-bare.sh"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.7",
+    "jsdom": "^29.1.1",
+    "ts-morph": "^25.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "zod": "^4.4.3"
+  }
+}

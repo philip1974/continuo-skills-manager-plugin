@@ -1,0 +1,56 @@
+name: cross-os-hash
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  hash-determinism:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Generate deterministic fixture (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x tools/generate-fixture-bare.sh
+          SHA2=$(bash tools/generate-fixture-bare.sh | head -1)
+          echo "FIXTURE_SHA=$SHA2" >> $GITHUB_ENV
+      - name: Generate deterministic fixture (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          chmod +x tools/generate-fixture-bare.sh || true
+          SHA2=$(bash tools/generate-fixture-bare.sh | head -1)
+          echo "FIXTURE_SHA=$SHA2" >> $GITHUB_ENV
+      - name: Assert fixture sha (cross-OS gate)
+        shell: bash
+        run: |
+          echo "Generated SHA: $FIXTURE_SHA"
+          FIXTURE_SHA_TRIM=$(echo -n "$FIXTURE_SHA" | tr -d '\r')
+          EXPECTED="${EXPECTED_FIXTURE_SHA:-}"
+          if [ -z "$EXPECTED" ]; then
+            echo "EXPECTED_FIXTURE_SHA not set; recording $FIXTURE_SHA_TRIM as candidate"
+            echo "FIXTURE_SHA_OBSERVED=$FIXTURE_SHA_TRIM" >> $GITHUB_OUTPUT
+          else
+            if [ "$FIXTURE_SHA_TRIM" != "$EXPECTED" ]; then
+              echo "::error::Fixture SHA mismatch on ${{ matrix.os }}: got $FIXTURE_SHA_TRIM expected $EXPECTED"
+              exit 1
+            fi
+          fi
+        env:
+          EXPECTED_FIXTURE_SHA: ${{ vars.EXPECTED_FIXTURE_SHA }}
+      - name: Run determinism integration test
+        run: pnpm exec vitest run src/trust/safe-fs.cross-os.test.ts

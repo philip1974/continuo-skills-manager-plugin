@@ -592,3 +592,229 @@ const instance: Plugin = new Ctor(scopedApp, entry.manifest);
 ### Probe verdict
 - All 4 probe points either match expected shape or have a documented sample-plugin demo button that validates the surface end-to-end.
 - Plan 04 trigger ③ is satisfied; the SDK extensions in Plan 05 land cleanly into the topology discovered in §A0.7.
+
+---
+
+## §A0.8 plan-04 Action 0 Discovery (2026-05-30)
+
+```yaml
+a0_8_action0:
+  gui_smoke_topic_01_phase_e5_closure:
+    button_scoped_fs: PASS
+    button_no_scope_error: PASS
+    button_streaming_exec: PASS
+    button_persist_counter: PASS
+  panel_signature:
+    register_call: "register(spec: PanelSpec): Disposable"
+    return_disposable: true
+    return_shape: "{ dispose: () => void }"
+    react_component_type: "(props: unknown) => ReactNode factory"
+  onload_signature: "async onload(): void | Promise<void>"
+  git_version: "git version 2.50.1 (Apple Git-155)"
+  git_host_probe:
+    github_com: PASS
+    github_com_notes: "fetch-by-SHA succeeded for https://github.com/wshobson/agents.git commit 0818067b4ecad18c234b2ae427cc44f2053792d4"
+    codeberg_org: TIMEOUT_LOCAL
+    codeberg_org_notes: "not a real host failure; local timeout command is not installed"
+  user_skill_baseline:
+    dir_exists: true
+    single_file_count: 0
+    directory_form_count: 14
+    total_md_count: 60
+  catalog_candidates:
+    - id: official-continuo
+      url: "https://raw.githubusercontent.com/philip1974/continuo-skills-catalog/main/catalog.json"
+      notes: "official curated list managed by Continuo team"
+    - id: wshobson-agents
+      url: "https://github.com/wshobson/agents"
+      notes: "high-visibility Claude Code agent/skill style repo; useful seed source, requires curation and schema normalization"
+    - id: awesome-claude-code
+      url: "https://github.com/hesreallyhim/awesome-claude-code"
+      notes: "community index; good discovery surface, lower direct trust because entries need per-repo validation"
+    - id: claude-code-community
+      url: "TBD-USER"
+      notes: "placeholder for a vetted community-maintained skills/source list if user selects one"
+  manifest_schema_passthrough: false
+  data_store_api_shape: "PluginDataStore exposes read(pluginId): Promise<unknown | null> and write(pluginId, data): Promise<void>; IpcPluginDataStore caches values and persists through coApi.pluginDataRaw.load/save."
+  plugin_register_return: "app.panels.register(spec) returns Disposable; Plugin.registerPanel(spec) returns this.register(this.app.panels.register(spec))."
+  raw_stdout:
+    probe_b: |-
+      27:  register(spec: PanelSpec): Disposable {
+      // Plugin 贡献的 Dockview panel 类型注册表(M-Plugin v1.5)。
+      // 纯数据 + subscribable;真正接 Dockview 的桥在 DockShell 里订阅本 registry。
+
+      import type { ReactNode } from 'react';
+      import type { Disposable } from '../types';
+
+      export interface PanelSpec {
+        /** Dockview panel component 类型名,跨插件唯一. */
+        readonly type: string;
+        /** Render 函数,返 React 节点. */
+        readonly factory: (props: unknown) => ReactNode;
+        /** 用户可见标题(默认 tab title). */
+        readonly title: string;
+        /**
+         * i18n key（topic-19）。Dockview addPanel 时塞进 panel.params，
+         * useDockLocaleSync 在 locale 变化时遍历 panels 调 panel.api.setTitle(tWithFallback(titleKey, title))。
+         */
+        readonly titleKey?: string;
+      }
+
+      type Listener = () => void;
+
+      export class PanelRegistry {
+        private items = new Map<string, PanelSpec>();
+        private listeners = new Set<Listener>();
+
+        register(spec: PanelSpec): Disposable {
+          if (this.items.has(spec.type)) {
+            console.warn(
+              `[panel-registry] type "${spec.type}" 已注册,后注册赢覆盖前者`,
+            );
+          }
+          this.items.set(spec.type, spec);
+          this.notify();
+
+          let disposed = false;
+          return {
+            dispose: () => {
+              if (disposed) return;
+              disposed = true;
+              // 仅当当前注册的还是 spec 本身才删(防被后注册者顶替后误删)
+              if (this.items.get(spec.type) === spec) {
+                this.items.delete(spec.type);
+                this.notify();
+              }
+            },
+          };
+        }
+
+        getAll(): readonly PanelSpec[] {
+    probe_c: |-
+      git version 2.50.1 (Apple Git-155)
+      Initialized empty Git repository in /private/tmp/host-probe/gh/.git/
+      From https://github.com/wshobson/agents
+       * branch            0818067b4ecad18c234b2ae427cc44f2053792d4 -> FETCH_HEAD
+      Initialized empty Git repository in /private/tmp/host-probe/cb/.git/
+      zsh:7: command not found: timeout
+    probe_d: |-
+      total 0
+      drwxr-xr-x@ 16 RiGang  staff  512 May 18 12:17 .
+      drwxr-xr-x@ 28 RiGang  staff  896 May 30 11:40 ..
+      drwxr-xr-x@  3 RiGang  staff   96 May 27 14:07 dl-execute
+      drwxr-xr-x@  3 RiGang  staff   96 May 11 13:51 dl-integrate
+      drwxr-xr-x@  3 RiGang  staff   96 May 18 12:20 dl-plan
+      drwxr-xr-x@  3 RiGang  staff   96 May 27 14:07 dl-red-team
+      drwxr-xr-x@  3 RiGang  staff   96 May 18 12:20 dl-req
+      drwxr-xr-x@  3 RiGang  staff   96 May 18 12:18 dl-req-mvp
+      drwxr-xr-x@  3 RiGang  staff   96 May 12 16:32 dl-verify
+      drwxr-xr-x@  3 RiGang  staff   96 May  3 13:56 frontend-design
+      drwxr-xr-x@  3 RiGang  staff   96 May 12 11:40 il-brief
+      drwxr-xr-x@  3 RiGang  staff   96 May 12 11:41 il-fix
+      drwxr-xr-x@  3 RiGang  staff   96 May 12 11:40 il-triage
+      drwxr-xr-x@  3 RiGang  staff   96 May 12 11:42 il-verify
+      drwxr-xr-x@  5 RiGang  staff  160 Jan 16 15:16 vercel-react-best-practices
+      drwxr-xr-x@  3 RiGang  staff   96 May  3 13:56 web-design-guidelines
+      /Users/RiGang/.claude/skills/dl-verify/SKILL.md
+      /Users/RiGang/.claude/skills/dl-red-team/SKILL.md
+      /Users/RiGang/.claude/skills/dl-execute/SKILL.md
+      /Users/RiGang/.claude/skills/il-brief/SKILL.md
+      /Users/RiGang/.claude/skills/dl-plan/SKILL.md
+      /Users/RiGang/.claude/skills/web-design-guidelines/SKILL.md
+      /Users/RiGang/.claude/skills/dl-integrate/SKILL.md
+      /Users/RiGang/.claude/skills/dl-req/SKILL.md
+      /Users/RiGang/.claude/skills/il-fix/SKILL.md
+      /Users/RiGang/.claude/skills/il-triage/SKILL.md
+      /Users/RiGang/.claude/skills/dl-req-mvp/SKILL.md
+      /Users/RiGang/.claude/skills/frontend-design/SKILL.md
+      /Users/RiGang/.claude/skills/il-verify/SKILL.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/SKILL.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/js-cache-storage.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/bundle-conditional.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/bundle-preload.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/js-combine-iterations.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/advanced-use-latest.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/js-length-check-first.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/rerender-derived-state.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/async-defer-await.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md
+      /Users/RiGang/.claude/skills/vercel-react-best-practices/rules/rendering-activity.md
+    probe_d_counts: |-
+      dir_exists=true
+      root_md_non_skill_count=0
+      root_skill_md_count=0
+      directory_form_count=14
+      total_md_count=60
+    probe_e: |-
+      candidates to discuss with user:
+        - github.com/wshobson/agents (10k+ stars Claude Code skills)
+        - github.com/hesreallyhim/awesome-claude-code (claude-code awesome list)
+        - github.com/{TBD-user-org}/continuo-skills-catalog (NEW official one to create)
+    probe_g: |-
+      7:export interface PluginDataStore {
+      28:export class IpcPluginDataStore implements PluginDataStore {
+      45:    await coApi.pluginDataRaw.save(pluginId, { value: data });
+    probe_i: |-
+      // Plugin 贡献的 Dockview panel 类型注册表(M-Plugin v1.5)。
+      // 纯数据 + subscribable;真正接 Dockview 的桥在 DockShell 里订阅本 registry。
+
+      import type { ReactNode } from 'react';
+      import type { Disposable } from '../types';
+
+      export interface PanelSpec {
+        /** Dockview panel component 类型名,跨插件唯一. */
+        readonly type: string;
+        /** Render 函数,返 React 节点. */
+        readonly factory: (props: unknown) => ReactNode;
+        /** 用户可见标题(默认 tab title). */
+        readonly title: string;
+        /**
+         * i18n key（topic-19）。Dockview addPanel 时塞进 panel.params，
+         * useDockLocaleSync 在 locale 变化时遍历 panels 调 panel.api.setTitle(tWithFallback(titleKey, title))。
+         */
+        readonly titleKey?: string;
+      }
+
+      type Listener = () => void;
+
+      export class PanelRegistry {
+        private items = new Map<string, PanelSpec>();
+        private listeners = new Set<Listener>();
+
+        register(spec: PanelSpec): Disposable {
+          if (this.items.has(spec.type)) {
+            console.warn(
+              `[panel-registry] type "${spec.type}" 已注册,后注册赢覆盖前者`,
+            );
+          }
+          this.items.set(spec.type, spec);
+          this.notify();
+
+          let disposed = false;
+          return {
+            dispose: () => {
+              if (disposed) return;
+              disposed = true;
+              // 仅当当前注册的还是 spec 本身才删(防被后注册者顶替后误删)
+              if (this.items.get(spec.type) === spec) {
+                this.items.delete(spec.type);
+                this.notify();
+              }
+            },
+          };
+        }
+
+        getAll(): readonly PanelSpec[] {
+          return Array.from(this.items.values());
+        }
+
+        subscribe(listener: Listener): () => void {
+          this.listeners.add(listener);
+          return () => this.listeners.delete(listener);
+        }
+
+        private notify(): void {
+          for (const l of this.listeners) l();
+        }
+      }
+```
