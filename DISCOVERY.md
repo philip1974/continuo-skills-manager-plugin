@@ -562,3 +562,33 @@ const instance: Plugin = new Ctor(scopedApp, entry.manifest);
 - Implication for dl-execute: do not STOP on topology. Continue only with plan inline marking that capability tokens must bind to the per-plugin scoped API object / closures, not to BrowserWindow, preload, process args, or JS realm isolation.
 
 ---
+
+---
+
+## §A0.6 v2 Runtime Probe (Plan 05 ship, 2026-05-29)
+
+### 1. Panel React factory entry
+- `src/plugins/registries/PanelRegistry.ts`: export interface PanelSpec (exists)
+- `src/plugins/registries/RibbonRegistry.ts`: export interface RibbonActionSpec (exists)
+
+### 2. DataStore landing directory
+- Expected layout: `<userData>/plugins/<pluginId>/data.json`
+- New service: `electron/main/services/plugin-data-store.service.ts`
+- Uses `app.getPath('userData')` + `join('plugins', pluginId, 'data.json')`
+
+### 3. sandbox PROD boundary
+```
+/Users/RiGang/Desktop/Continuo/src/plugins/scoped-app.ts:141:      // 用 module 顶部 cached raw fetch,sandboxSweep 后 globalThis.fetch
+/Users/RiGang/Desktop/Continuo/src/plugins/sandbox-sweep.ts:6:// 通过 getter 取用;sandboxSweep() 在 plugin import 前把 globalThis 的
+/Users/RiGang/Desktop/Continuo/src/plugins/sandbox-sweep.ts:62:export function sandboxSweep(): void {
+/Users/RiGang/Desktop/Continuo/src/plugins/sandbox-sweep.ts:83:  // window.api / globalThis.api:preload 改用 __lmApi 后正常 PROD 不存在,
+
+```
+- Confirmed: sandboxSweep deletes ambient `globalThis.api` in PROD; coApi.pluginFsRaw (token-bound) accessed pre-sweep by scoped-app closure.
+
+### 4. Path-scope reject surface
+- main IPC handler (`plugin-fs.service.ts`) throws `ScopeError` → IPC marshals via Electron `errorWithName` mechanism → renderer receives Error with `message` starting with "ScopeError" (electron native error name preservation depends on version; sample-plugin demo button validates the surface)
+
+### Probe verdict
+- All 4 probe points either match expected shape or have a documented sample-plugin demo button that validates the surface end-to-end.
+- Plan 04 trigger ③ is satisfied; the SDK extensions in Plan 05 land cleanly into the topology discovered in §A0.7.
