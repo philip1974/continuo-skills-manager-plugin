@@ -28,8 +28,5 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",
     "zod": "^4.4.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
   }
 }
