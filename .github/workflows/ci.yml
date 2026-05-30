@@ -9,7 +9,12 @@ jobs:
     name: Test (${{ matrix.os }})
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Windows omitted for v0.1: plan-04 §3.4 #4 acknowledges Windows as
+        # degraded (no persistent cache, mode bits cosmetic). Full Windows
+        # unit-test parity (path separators, time/clock differences) deferred
+        # to v0.2. cross-os-hash.yml still tests Windows for canonical tree
+        # hash determinism, which IS in scope.
+        os: [ubuntu-latest, macos-latest]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
