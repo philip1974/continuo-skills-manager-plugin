@@ -1,30 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CoPluginApp } from '../types/sdk-shim';
 import { sep } from '../util/path-polyfill';
-import {
-  PROJECT_SCOPE_CWD_KEY,
-  resolveProjectScope,
-  resolveUserScope,
-  setProjectScopeCwd,
-} from './path-resolver';
+import { resolveProjectScope, resolveUserScope } from './path-resolver';
 
 async function* chunks() {
   return;
 }
 
 function makeApp(opts?: {
-  data?: Record<string, unknown>;
+  workspaceRoot?: string | null;
   exitCode?: number;
   execThrows?: boolean;
 }): CoPluginApp {
-  const data = opts?.data ?? {};
+  const root = opts?.workspaceRoot ?? null;
   return {
     fs: {
       userHome: vi.fn(async () => '/Users/test-user'),
     },
-    dataStore: {
-      load: vi.fn(async () => data),
-      save: vi.fn(async () => undefined),
+    workspace: {
+      getRoot: vi.fn(async () => root),
     },
     shell: {
       execStream: vi.fn(() => {
@@ -48,28 +42,28 @@ describe('path resolver', () => {
     expect(userScope.startsWith(sep)).toBe(true);
   });
 
-  it('returns null when project scope is not configured', async () => {
+  it('returns null when no workspace is open', async () => {
     await expect(resolveProjectScope(makeApp())).resolves.toBeNull();
   });
 
-  it('returns null when project cwd is an empty string', async () => {
+  it('returns null when workspace is an empty string treated as null', async () => {
     await expect(
-      resolveProjectScope(makeApp({ data: { [PROJECT_SCOPE_CWD_KEY]: '' } })),
+      resolveProjectScope(makeApp({ workspaceRoot: null })),
     ).resolves.toBeNull();
   });
 
-  it('returns null when configured cwd is not a git repo', async () => {
+  it('returns null when workspace is not a git repo', async () => {
     await expect(
       resolveProjectScope(
-        makeApp({ data: { [PROJECT_SCOPE_CWD_KEY]: '/repo' }, exitCode: 128 }),
+        makeApp({ workspaceRoot: '/repo', exitCode: 128 }),
       ),
     ).resolves.toBeNull();
   });
 
-  it('returns project skills path when configured cwd is a git repo', async () => {
+  it('returns project skills path when workspace is a git repo', async () => {
     await expect(
       resolveProjectScope(
-        makeApp({ data: { [PROJECT_SCOPE_CWD_KEY]: '/repo' }, exitCode: 0 }),
+        makeApp({ workspaceRoot: '/repo', exitCode: 0 }),
       ),
     ).resolves.toBe(`/repo${sep}.claude${sep}skills`);
   });
@@ -77,40 +71,15 @@ describe('path resolver', () => {
   it('returns null when execStream itself throws', async () => {
     await expect(
       resolveProjectScope(
-        makeApp({ data: { [PROJECT_SCOPE_CWD_KEY]: '/missing' }, execThrows: true }),
+        makeApp({ workspaceRoot: '/missing', execThrows: true }),
       ),
     ).resolves.toBeNull();
   });
 
-  it('sets project scope cwd in DataStore', async () => {
-    const app = makeApp({ data: {} });
-    await setProjectScopeCwd(app, '/repo');
-    expect(app.dataStore.save).toHaveBeenCalledWith({
-      [PROJECT_SCOPE_CWD_KEY]: '/repo',
-    });
-  });
-
-  it('clears project scope cwd from DataStore', async () => {
-    const app = makeApp({
-      data: { [PROJECT_SCOPE_CWD_KEY]: '/repo', keep: true },
-    });
-    await setProjectScopeCwd(app, null);
-    expect(app.dataStore.save).toHaveBeenCalledWith({ keep: true });
-  });
-
-  it('preserves other DataStore keys when setting cwd', async () => {
-    const app = makeApp({ data: { keep: 1 } });
-    await setProjectScopeCwd(app, '/repo');
-    expect(app.dataStore.save).toHaveBeenCalledWith({
-      keep: 1,
-      [PROJECT_SCOPE_CWD_KEY]: '/repo',
-    });
-  });
-
-  it('returns null when a configured cwd is no longer a git repo', async () => {
+  it('returns null when a previously valid workspace stops being a git repo', async () => {
     await expect(
       resolveProjectScope(
-        makeApp({ data: { [PROJECT_SCOPE_CWD_KEY]: '/was-repo' }, exitCode: 128 }),
+        makeApp({ workspaceRoot: '/was-repo', exitCode: 128 }),
       ),
     ).resolves.toBeNull();
   });

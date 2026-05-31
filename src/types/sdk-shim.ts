@@ -121,6 +121,12 @@ export interface CoPluginAppNetwork {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CoPluginAppDataStore = any;
 
+// upstream: Continuo src/plugins/types.ts CoWorkspaceApi (Continuo >= 0.2.2)
+// Per-window read-only workspace state. Returns null when no folder open.
+export interface CoPluginAppWorkspace {
+  getRoot(): Promise<string | null>;
+}
+
 export interface CoPluginApp {
   panels: {
     // upstream: Continuo src/plugins/registries/PanelRegistry.ts PanelSpec
@@ -147,6 +153,7 @@ export interface CoPluginApp {
   // Polymorphic at runtime: raw {read, write} from Continuo OR scoped
   // {load, save} from main.ts makeScopedApp wrap. See JSDoc above.
   dataStore: CoPluginAppDataStore;
+  workspace: CoPluginAppWorkspace;
 }
 
 export interface PluginManifest {

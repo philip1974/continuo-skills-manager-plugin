@@ -6,7 +6,7 @@ import {
   getCatalogUrl,
   setUserCatalogUrlOverride,
 } from '../catalog/loader';
-import { setProjectScopeCwd } from '../scope/path-resolver';
+import { resolveProjectScope } from '../scope/path-resolver';
 import { SettingsTab } from './SettingsTab';
 
 vi.mock('../catalog/loader', () => ({
@@ -16,15 +16,13 @@ vi.mock('../catalog/loader', () => ({
 }));
 
 vi.mock('../scope/path-resolver', () => ({
-  PROJECT_SCOPE_CWD_KEY: 'config:project-scope-cwd',
-  setProjectScopeCwd: vi.fn(),
+  resolveProjectScope: vi.fn(),
 }));
 
-function app(data: Record<string, unknown> = {}) {
+function app(opts?: { workspaceRoot?: string | null }) {
   return {
-    dataStore: {
-      load: vi.fn(async () => data),
-      save: vi.fn(),
+    workspace: {
+      getRoot: vi.fn(async () => opts?.workspaceRoot ?? null),
     },
   } as never;
 }
@@ -36,7 +34,7 @@ beforeEach(() => {
       'https://raw.githubusercontent.com/philip1974/continuo-skills-catalog/main/catalog.json',
     );
   vi.mocked(setUserCatalogUrlOverride).mockReset().mockResolvedValue(undefined);
-  vi.mocked(setProjectScopeCwd).mockReset().mockResolvedValue(undefined);
+  vi.mocked(resolveProjectScope).mockReset().mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -79,23 +77,35 @@ describe('SettingsTab', () => {
     expect(setUserCatalogUrlOverride).toHaveBeenCalledWith(expect.anything(), null);
   });
 
-  it('saves project cwd', async () => {
-    render(<SettingsTab app={app()} />);
-    const input = (await screen.findByTestId(
-      'project-cwd-input',
-    )) as HTMLInputElement;
-    await userEvent.type(input, '/repo');
-    await userEvent.click(screen.getByTestId('save-project-cwd-btn'));
-    expect(setProjectScopeCwd).toHaveBeenCalledWith(expect.anything(), '/repo');
+  it('shows "no folder open" when workspace root is null', async () => {
+    render(<SettingsTab app={app({ workspaceRoot: null })} />);
+    const wsLine = await screen.findByTestId('workspace-line');
+    expect(wsLine.textContent).toContain('(no folder open)');
   });
 
-  it('clears project cwd', async () => {
-    render(<SettingsTab app={app({ 'config:project-scope-cwd': '/repo' })} />);
-    await userEvent.click(await screen.findByTestId('clear-project-cwd-btn'));
-    expect(setProjectScopeCwd).toHaveBeenCalledWith(expect.anything(), null);
+  it('shows workspace root when one is open', async () => {
+    render(<SettingsTab app={app({ workspaceRoot: '/Users/me/proj' })} />);
+    const wsLine = await screen.findByTestId('workspace-line');
+    expect(wsLine.textContent).toContain('/Users/me/proj');
   });
 
-  it('shows saved message after an action', async () => {
+  it('shows resolved project skills root when workspace is git-backed', async () => {
+    vi.mocked(resolveProjectScope).mockResolvedValue('/Users/me/proj/.claude/skills');
+    render(<SettingsTab app={app({ workspaceRoot: '/Users/me/proj' })} />);
+    const psr = await screen.findByTestId('project-skills-line');
+    await waitFor(() => {
+      expect(psr.textContent).toContain('/Users/me/proj/.claude/skills');
+    });
+  });
+
+  it('shows unavailable hint when workspace is open but not git-backed', async () => {
+    vi.mocked(resolveProjectScope).mockResolvedValue(null);
+    render(<SettingsTab app={app({ workspaceRoot: '/Users/me/no-git' })} />);
+    const psr = await screen.findByTestId('project-skills-line');
+    expect(psr.textContent).toContain('unavailable');
+  });
+
+  it('shows saved message after a catalog reset', async () => {
     render(<SettingsTab app={app()} />);
     await userEvent.click(await screen.findByTestId('reset-catalog-url-btn'));
     await waitFor(() => {

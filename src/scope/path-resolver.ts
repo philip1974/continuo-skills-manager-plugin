@@ -1,4 +1,14 @@
 // Resolve user and project skill roots through Plan 05 SDK surfaces.
+//
+// v0.1.1 (post-topic-05): Project scope is no longer manually configured
+// via dataStore — it auto-resolves from Continuo's workspace.getRoot()
+// (Continuo SDK 0.2.2+). Required: workspace is git-backed (git rev-parse
+// --git-dir succeeds). When no workspace open or not git-backed, returns
+// null and PanelMain disables Project install buttons.
+//
+// PROJECT_SCOPE_CWD_KEY still exported for back-compat: legacy dataStore
+// entries are silently ignored (effective workspace wins) but the key
+// const is preserved to avoid breaking any test/setting that references it.
 
 import type { CoPluginApp } from '../types/sdk-shim';
 import { execStreamCollect } from '../util/exec-stream-helper';
@@ -14,33 +24,19 @@ export async function resolveUserScope(app: CoPluginApp): Promise<string> {
 export async function resolveProjectScope(
   app: CoPluginApp,
 ): Promise<string | null> {
-  const stored = await app.dataStore.load();
-  const cwd = stored[PROJECT_SCOPE_CWD_KEY];
-  if (typeof cwd !== 'string' || !cwd) return null;
+  const root = await app.workspace.getRoot();
+  if (!root) return null;
 
   try {
     const result = await execStreamCollect(app, 'git', ['rev-parse', '--git-dir'], {
-      cwd,
+      cwd: root,
     });
     if (result.exitCode !== 0) return null;
   } catch {
     return null;
   }
 
-  return join(cwd, '.claude', 'skills');
-}
-
-export async function setProjectScopeCwd(
-  app: CoPluginApp,
-  cwd: string | null,
-): Promise<void> {
-  const data = await app.dataStore.load();
-  if (cwd === null) {
-    delete data[PROJECT_SCOPE_CWD_KEY];
-  } else {
-    data[PROJECT_SCOPE_CWD_KEY] = cwd;
-  }
-  await app.dataStore.save(data);
+  return join(root, '.claude', 'skills');
 }
 
 export { PROJECT_SCOPE_CWD_KEY };

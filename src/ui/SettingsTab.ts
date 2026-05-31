@@ -3,10 +3,7 @@ import {
   setUserCatalogUrlOverride,
 } from '../catalog/loader';
 import { isPlaceholderCatalogUrl } from '../config/catalog-allowlist';
-import {
-  PROJECT_SCOPE_CWD_KEY,
-  setProjectScopeCwd,
-} from '../scope/path-resolver';
+import { resolveProjectScope } from '../scope/path-resolver';
 import { co, type CoPluginApp } from '../types/sdk-shim';
 
 const { React } = co;
@@ -114,21 +111,21 @@ const styles = {
 export function SettingsTab({ app }: SettingsTabProps) {
   const [catalogUrl, setCatalogUrl] = React.useState<string>('');
   const [catalogInput, setCatalogInput] = React.useState<string>('');
-  const [projectCwd, setProjectCwdState] = React.useState<string>('');
-  const [projectInput, setProjectInput] = React.useState<string>('');
+  const [workspaceRoot, setWorkspaceRoot] = React.useState<string | null>(null);
+  const [projectSkillsRoot, setProjectSkillsRoot] = React.useState<string | null>(null);
   const [savedAt, setSavedAt] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
       const url = await getCatalogUrl(app);
-      const data = await app.dataStore.load();
-      const cwd = (data[PROJECT_SCOPE_CWD_KEY] as string | undefined) ?? '';
+      const ws = await app.workspace.getRoot();
+      const psr = await resolveProjectScope(app);
       if (cancelled) return;
       setCatalogUrl(url);
       setCatalogInput(url);
-      setProjectCwdState(cwd);
-      setProjectInput(cwd);
+      setWorkspaceRoot(ws);
+      setProjectSkillsRoot(psr);
     })();
     return () => {
       cancelled = true;
@@ -140,13 +137,6 @@ export function SettingsTab({ app }: SettingsTabProps) {
     const effective = await getCatalogUrl(app);
     setCatalogUrl(effective);
     setCatalogInput(effective);
-    setSavedAt(Date.now());
-  }
-
-  async function saveProjectCwd(cwd: string | null) {
-    await setProjectScopeCwd(app, cwd);
-    setProjectCwdState(cwd ?? '');
-    setProjectInput(cwd ?? '');
     setSavedAt(Date.now());
   }
 
@@ -212,52 +202,25 @@ export function SettingsTab({ app }: SettingsTabProps) {
       ),
       h('p', { style: styles.effectiveLine }, `Effective: ${catalogUrl}`),
     ),
-    // Project scope cwd
+    // Project scope (auto from workspace)
     h(
       'section',
       { 'data-testid': 'project-cwd-section', style: styles.section },
-      h('h3', { style: styles.sectionTitle }, 'Project skills root'),
+      h('h3', { style: styles.sectionTitle }, 'Project skills root (auto)'),
       h(
         'p',
         { style: styles.sectionHint },
-        'Absolute path of a git-backed workspace. Skills installed to Project scope land in <root>/.claude/skills/. Leave empty to disable Project scope.',
-      ),
-      h(
-        'div',
-        { style: styles.inputRow },
-        h('input', {
-          type: 'text',
-          value: projectInput,
-          onChange: (event: { target: { value: string } }) =>
-            setProjectInput(event.target.value),
-          placeholder: '/Users/you/Desktop/your-project',
-          'data-testid': 'project-cwd-input',
-          style: styles.input,
-        }),
-        h(
-          'button',
-          {
-            onClick: () =>
-              saveProjectCwd(projectInput.trim() ? projectInput : null),
-            'data-testid': 'save-project-cwd-btn',
-            style: styles.btnPrimary,
-          },
-          'Save',
-        ),
-        h(
-          'button',
-          {
-            onClick: () => saveProjectCwd(null),
-            'data-testid': 'clear-project-cwd-btn',
-            style: styles.btnGhost,
-          },
-          'Clear',
-        ),
+        'Project scope tracks the current Continuo window’s workspace root. Open a git-backed folder in the explorer; skills install to <workspace>/.claude/skills/. No manual configuration.',
       ),
       h(
         'p',
-        { style: styles.effectiveLine },
-        `Current: ${projectCwd || '(not configured)'}`,
+        { style: styles.effectiveLine, 'data-testid': 'workspace-line' },
+        `Workspace: ${workspaceRoot ?? '(no folder open)'}`,
+      ),
+      h(
+        'p',
+        { style: styles.effectiveLine, 'data-testid': 'project-skills-line' },
+        `Project skills root: ${projectSkillsRoot ?? '(unavailable — open a git-backed workspace)'}`,
       ),
       h(
         'p',
@@ -268,7 +231,9 @@ export function SettingsTab({ app }: SettingsTabProps) {
             fontStyle: 'italic',
           },
         },
-        'After saving, close and reopen the Skills panel for Project install buttons to activate.',
+        workspaceRoot && !projectSkillsRoot
+          ? 'Workspace is open but git rev-parse failed — folder isn’t a git repo, so Project scope is disabled.'
+          : 'After switching workspaces, close and reopen the Skills panel to refresh Project buttons.',
       ),
     ),
     savedAt !== null &&
