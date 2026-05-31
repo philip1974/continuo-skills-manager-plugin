@@ -42,6 +42,10 @@ function mockApp() {
   return {
     fs: {
       requestScope: vi.fn().mockResolvedValue('grant'),
+      mkdir: vi.fn().mockResolvedValue(undefined),
+    },
+    workspace: {
+      getRoot: vi.fn().mockResolvedValue(null),
     },
   } as never;
 }

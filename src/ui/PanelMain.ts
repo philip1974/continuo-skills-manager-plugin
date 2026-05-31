@@ -379,18 +379,41 @@ export function PanelMain({ app }: PanelMainProps) {
     (async () => {
       const uRoot = await resolveUserScope(app);
       const pRoot = await resolveProjectScope(app);
-      // Request 'rw' upfront — covers both scan (read) and install (write).
-      // One prompt vs two if we requested 'r' then upgraded to 'rw' on install.
+      // Workspace's <ws>/.claude parent — broader than .claude/skills so plugin
+      // can mkdir the skills subdir when it doesn't exist yet (fresh project).
+      // resolveForWrite scope-check needs `.claude` to be the granted path
+      // (or an ancestor) to permit creating its `skills` child.
+      const ws = await app.workspace.getRoot();
+      const projectClaude = ws ? `${ws}${sep}.claude` : null;
+      // Request 'rw' upfront — covers scan (read) + install (write) +
+      // mkdir of bootstrap dirs. One prompt vs separate per-op prompts.
       const scopes: { path: string; mode: 'r' | 'rw' }[] = [
         { path: uRoot, mode: 'rw' },
       ];
-      if (pRoot) scopes.push({ path: pRoot, mode: 'rw' });
+      if (projectClaude) scopes.push({ path: projectClaude, mode: 'rw' });
       let granted = false;
       try {
         granted = (await app.fs.requestScope(scopes)) === 'grant';
       } catch {
         granted = false;
       }
+
+      // Bootstrap project dirs so subsequent install (which mkdir's tmpDir
+      // under projectSkillsRoot) finds the parent chain in place.
+      // Best-effort: silent on mkdir failure (permissions / race etc).
+      if (granted && projectClaude && pRoot) {
+        try {
+          await app.fs.mkdir(projectClaude, { recursive: true });
+        } catch {
+          // ignore
+        }
+        try {
+          await app.fs.mkdir(pRoot, { recursive: true });
+        } catch {
+          // ignore
+        }
+      }
+
       const nextUser = granted ? await scanScope(app, uRoot, 'user') : [];
       const nextProject =
         granted && pRoot ? await scanScope(app, pRoot, 'project') : [];
