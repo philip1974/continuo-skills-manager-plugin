@@ -64,6 +64,13 @@ export async function commit(
     );
   }
 
+  // ls-tree returns paths relative to repo root (with subpath prefix when
+  // subpath !== ''). Strip prefix so staging writes flat under dst, matching
+  // the final install layout (subpath contents become the skill dir contents).
+  // Otherwise safeCopyTreeFromBlobs tries to mkdir nested dirs that don't yet
+  // exist and main's resolveForWrite fails with "parent missing".
+  const subpath = args.entry.subpath ?? '';
+  const stripPrefix = subpath ? subpath.replace(/\/$/, '') + '/' : '';
   const blobs: BlobEntry[] = [];
   for (const line of decodeUtf8(ls.stdout)
     .trim()
@@ -74,7 +81,10 @@ export async function commit(
     const sha = match?.[3];
     const path = match?.[4];
     if (kind === 'blob' && sha && path) {
-      blobs.push({ path, sha });
+      const relPath = stripPrefix && path.startsWith(stripPrefix)
+        ? path.slice(stripPrefix.length)
+        : path;
+      blobs.push({ path: relPath, sha });
     }
   }
 
