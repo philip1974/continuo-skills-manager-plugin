@@ -188,15 +188,89 @@ function isPlaceholderSha(sha: string): boolean {
   return sha === PLACEHOLDER_SHA || /^0+$/.test(sha);
 }
 
-function catalogCard(
+function scopeButton(
+  scope: 'user' | 'project',
+  scopeAvailable: boolean,
+  installedHere: SkillRecord | null,
   entry: CatalogEntry,
-  installedRecord: SkillRecord | null,
   busy: boolean,
-  busyId: string | null,
-  onInstall: (e: CatalogEntry) => void,
+  isBusy: boolean,
+  placeholder: boolean,
+  onInstall: (e: CatalogEntry, s: 'user' | 'project') => void,
   onUninstall: (r: SkillRecord) => void,
 ): unknown {
-  const installed = installedRecord !== null;
+  const scopeLabel = scope === 'user' ? 'User' : 'Project';
+  const testId = `catalog-${scope}-btn-${entry.id}`;
+
+  // Project not configured: disabled hint
+  if (scope === 'project' && !scopeAvailable) {
+    return h(
+      'button',
+      {
+        key: scope,
+        'data-testid': testId,
+        disabled: true,
+        style: styles.btnDisabled,
+        title: 'Configure Project skills root in Settings or open a git-backed workspace.',
+      },
+      `${scopeLabel}: N/A`,
+    );
+  }
+
+  // Already installed in this scope → Uninstall
+  if (installedHere) {
+    return h(
+      'button',
+      {
+        key: scope,
+        'data-testid': testId,
+        onClick: () => onUninstall(installedHere),
+        disabled: busy,
+        style: busy ? styles.btnDisabled : styles.btnGhost,
+      },
+      isBusy ? `${scopeLabel}: Removing…` : `Uninstall ${scopeLabel}`,
+    );
+  }
+
+  // Placeholder SHA → no install possible
+  if (placeholder) {
+    return h(
+      'button',
+      {
+        key: scope,
+        'data-testid': testId,
+        disabled: true,
+        style: styles.btnDisabled,
+        title: 'Catalog entry has placeholder SHA — not installable yet.',
+      },
+      `Install ${scopeLabel}`,
+    );
+  }
+
+  // Install in this scope
+  return h(
+    'button',
+    {
+      key: scope,
+      'data-testid': testId,
+      onClick: () => onInstall(entry, scope),
+      disabled: busy,
+      style: busy ? styles.btnDisabled : styles.btnPrimary,
+    },
+    isBusy ? `Installing ${scopeLabel}…` : `Install ${scopeLabel}`,
+  );
+}
+
+function catalogCard(
+  entry: CatalogEntry,
+  userInstalled: SkillRecord | null,
+  projectInstalled: SkillRecord | null,
+  projectSupported: boolean,
+  busy: boolean,
+  busyId: string | null,
+  onInstall: (e: CatalogEntry, scope: 'user' | 'project') => void,
+  onUninstall: (r: SkillRecord) => void,
+): unknown {
   const isBusy = busy && busyId === entry.id;
   const placeholder = isPlaceholderSha(entry.sha);
   return h(
@@ -250,41 +324,40 @@ function catalogCard(
         h('div', { style: styles.cardDesc }, entry.description),
       h('div', { style: styles.cardMeta }, `${entry.id} · ${entry.sha.slice(0, 7)}`),
     ),
-    installed
-      ? h(
-          'div',
-          { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-          h('span', { style: styles.installedBadge }, 'Installed'),
-          h(
-            'button',
-            {
-              onClick: () => onUninstall(installedRecord!),
-              disabled: busy,
-              style: busy ? styles.btnDisabled : styles.btnGhost,
-            },
-            isBusy ? 'Removing…' : 'Uninstall',
-          ),
-        )
-      : placeholder
-        ? h(
-            'button',
-            {
-              disabled: true,
-              style: styles.btnDisabled,
-              title:
-                'Catalog entry has placeholder SHA — catalog maintainer needs to publish a real commit SHA.',
-            },
-            'Not ready',
-          )
-        : h(
-            'button',
-            {
-              onClick: () => onInstall(entry),
-              disabled: busy,
-              style: busy ? styles.btnDisabled : styles.btnPrimary,
-            },
-            isBusy ? 'Installing…' : 'Install',
-          ),
+    h(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          alignItems: 'stretch',
+          minWidth: 130,
+        },
+      },
+      scopeButton(
+        'user',
+        true,
+        userInstalled,
+        entry,
+        busy,
+        isBusy,
+        placeholder,
+        onInstall,
+        onUninstall,
+      ),
+      scopeButton(
+        'project',
+        projectSupported,
+        projectInstalled,
+        entry,
+        busy,
+        isBusy,
+        placeholder,
+        onInstall,
+        onUninstall,
+      ),
+    ),
   );
 }
 
@@ -360,12 +433,24 @@ export function PanelMain({ app }: PanelMainProps) {
     }
   }
 
-  async function handleInstall(entry: CatalogEntry): Promise<void> {
-    if (busy || !userRoot) return;
+  async function handleInstall(
+    entry: CatalogEntry,
+    scope: 'user' | 'project',
+  ): Promise<void> {
+    if (busy) return;
+    const root = scope === 'user' ? userRoot : projectRoot;
+    if (!root) {
+      window.alert(
+        scope === 'project'
+          ? 'Project skills root not configured. Set it in Settings first.'
+          : 'User scope unavailable.',
+      );
+      return;
+    }
     setBusy(true);
     setBusyId(entry.id);
-    const finalTarget = `${userRoot}${sep}${entry.id}`;
-    const tmpDir = `${userRoot}${sep}.tmp-install-${entry.id}-${Date.now()}`;
+    const finalTarget = `${root}${sep}${entry.id}`;
+    const tmpDir = `${root}${sep}.tmp-install-${entry.id}-${Date.now()}`;
     try {
       const { canonicalDir } = await cloneAtSha(app, {
         gitUrl: entry.gitUrl,
@@ -375,7 +460,7 @@ export function PanelMain({ app }: PanelMainProps) {
       const receipt = await validateAndIssueReceipt(app, {
         entry,
         repoDir: canonicalDir,
-        scope: 'user',
+        scope,
         finalTarget,
       });
       await commit(app, {
@@ -405,10 +490,10 @@ export function PanelMain({ app }: PanelMainProps) {
     }
   }
 
-  const installedById = new Map<string, SkillRecord>();
-  for (const r of [...(userSkills ?? []), ...(projectSkills ?? [])]) {
-    if (!installedById.has(r.id)) installedById.set(r.id, r);
-  }
+  const userInstalledById = new Map<string, SkillRecord>();
+  for (const r of userSkills ?? []) userInstalledById.set(r.id, r);
+  const projectInstalledById = new Map<string, SkillRecord>();
+  for (const r of projectSkills ?? []) projectInstalledById.set(r.id, r);
 
   return h(
     'div',
@@ -465,7 +550,9 @@ export function PanelMain({ app }: PanelMainProps) {
         catalog.entries.map((entry) =>
           catalogCard(
             entry,
-            installedById.get(entry.id) ?? null,
+            userInstalledById.get(entry.id) ?? null,
+            projectInstalledById.get(entry.id) ?? null,
+            projectRoot !== null,
             busy,
             busyId,
             handleInstall,
