@@ -10,7 +10,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check:web-compat": "node scripts/check-web-compat.mjs",
-    "install:dev": "pnpm build && bash scripts/dev-install.sh",
+    "install:plugin": "pnpm build && bash scripts/dev-install.sh --all",
+    "install:dev": "pnpm build && bash scripts/dev-install.sh --dev",
+    "install:packaged": "pnpm build && bash scripts/dev-install.sh",
     "trust-gate": "bash tools/check-trust-gates.sh",
     "trust-gates": "bash tools/check-trust-gates.sh",
     "fixture:gen": "bash tools/generate-fixture-bare.sh"
