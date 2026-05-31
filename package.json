@@ -5,10 +5,11 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "prebuild": "rm -rf dist",
+    "prebuild": "rm -rf dist && node scripts/check-web-compat.mjs",
     "build": "node build.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "check:web-compat": "node scripts/check-web-compat.mjs",
     "install:dev": "pnpm build && bash scripts/dev-install.sh",
     "trust-gate": "bash tools/check-trust-gates.sh",
     "trust-gates": "bash tools/check-trust-gates.sh",
