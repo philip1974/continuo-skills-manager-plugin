@@ -190,11 +190,13 @@ function isPlaceholderSha(sha: string): boolean {
 
 function catalogCard(
   entry: CatalogEntry,
-  installed: boolean,
+  installedRecord: SkillRecord | null,
   busy: boolean,
   busyId: string | null,
   onInstall: (e: CatalogEntry) => void,
+  onUninstall: (r: SkillRecord) => void,
 ): unknown {
+  const installed = installedRecord !== null;
   const isBusy = busy && busyId === entry.id;
   const placeholder = isPlaceholderSha(entry.sha);
   return h(
@@ -249,7 +251,20 @@ function catalogCard(
       h('div', { style: styles.cardMeta }, `${entry.id} · ${entry.sha.slice(0, 7)}`),
     ),
     installed
-      ? h('span', { style: styles.installedBadge }, 'Installed')
+      ? h(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          h('span', { style: styles.installedBadge }, 'Installed'),
+          h(
+            'button',
+            {
+              onClick: () => onUninstall(installedRecord!),
+              disabled: busy,
+              style: busy ? styles.btnDisabled : styles.btnGhost,
+            },
+            isBusy ? 'Removing…' : 'Uninstall',
+          ),
+        )
       : placeholder
         ? h(
             'button',
@@ -390,9 +405,10 @@ export function PanelMain({ app }: PanelMainProps) {
     }
   }
 
-  const installedIds = new Set(
-    [...(userSkills ?? []), ...(projectSkills ?? [])].map((s) => s.id),
-  );
+  const installedById = new Map<string, SkillRecord>();
+  for (const r of [...(userSkills ?? []), ...(projectSkills ?? [])]) {
+    if (!installedById.has(r.id)) installedById.set(r.id, r);
+  }
 
   return h(
     'div',
@@ -449,10 +465,11 @@ export function PanelMain({ app }: PanelMainProps) {
         catalog.entries.map((entry) =>
           catalogCard(
             entry,
-            installedIds.has(entry.id),
+            installedById.get(entry.id) ?? null,
             busy,
             busyId,
             handleInstall,
+            handleUninstall,
           ),
         ),
     ),
