@@ -1,6 +1,5 @@
 // Final install commit: verify receipt, rehash, stage, then atomic replace.
 
-import { dirname, sep } from 'node:path';
 import type { CatalogEntry, ValidationReceipt } from '../types/data';
 import type { CoPluginApp } from '../types/sdk-shim';
 import {
@@ -10,6 +9,8 @@ import {
   type BlobEntry,
 } from '../trust/safe-fs';
 import { execStreamCollect } from '../util/exec-stream-helper';
+import { dirname, sep } from '../util/path-polyfill';
+import { decodeUtf8 } from '../util/web-crypto-helpers';
 import { assertReceiptFresh, HashMismatchError } from './validate';
 
 export class CommitError extends Error {
@@ -59,13 +60,12 @@ export async function commit(
   if (ls.exitCode !== 0) {
     throw new CommitError(
       'staging',
-      `git ls-tree failed: ${ls.stderr.toString('utf-8')}`,
+      `git ls-tree failed: ${decodeUtf8(ls.stderr)}`,
     );
   }
 
   const blobs: BlobEntry[] = [];
-  for (const line of ls.stdout
-    .toString('utf-8')
+  for (const line of decodeUtf8(ls.stdout)
     .trim()
     .split('\n')
     .filter((item) => item)) {

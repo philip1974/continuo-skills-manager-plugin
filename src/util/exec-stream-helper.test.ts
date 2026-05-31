@@ -1,16 +1,20 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import type { CoPluginApp } from '../types/sdk-shim';
 import { execStreamCollect } from './exec-stream-helper';
+import { decodeUtf8 } from './web-crypto-helpers';
+
+const encoder = new TextEncoder();
 
 async function* chunks(items: { stream: 'stdout' | 'stderr'; text: string }[]) {
   for (const item of items) {
-    yield { stream: item.stream, chunk: Buffer.from(item.text) };
+    yield { stream: item.stream, chunk: encoder.encode(item.text) };
   }
 }
 
 function mockApp(
   items: { stream: 'stdout' | 'stderr'; text: string }[],
-  exit: { exitCode: number | null; signal: NodeJS.Signals | null },
+  exit: { exitCode: number | null; signal: string | null },
 ): CoPluginApp {
   return {
     shell: {
@@ -32,8 +36,8 @@ describe('execStreamCollect', () => {
       { exitCode: 0, signal: null },
     );
     const result = await execStreamCollect(app, 'git', ['status']);
-    expect(result.stdout.toString()).toBe('hello world');
-    expect(result.stderr.toString()).toBe('');
+    expect(decodeUtf8(result.stdout)).toBe('hello world');
+    expect(decodeUtf8(result.stderr)).toBe('');
     expect(result.exitCode).toBe(0);
   });
 
@@ -46,8 +50,8 @@ describe('execStreamCollect', () => {
       { exitCode: 0, signal: null },
     );
     const result = await execStreamCollect(app, 'git', ['fetch']);
-    expect(result.stdout.toString()).toBe('ok');
-    expect(result.stderr.toString()).toBe('warn');
+    expect(decodeUtf8(result.stdout)).toBe('ok');
+    expect(decodeUtf8(result.stderr)).toBe('warn');
   });
 
   it('returns non-zero exit codes', async () => {
@@ -57,7 +61,7 @@ describe('execStreamCollect', () => {
     });
     const result = await execStreamCollect(app, 'git', ['bad']);
     expect(result.exitCode).toBe(2);
-    expect(result.stderr.toString()).toBe('fail');
+    expect(decodeUtf8(result.stderr)).toBe('fail');
   });
 
   it('returns signal exits', async () => {

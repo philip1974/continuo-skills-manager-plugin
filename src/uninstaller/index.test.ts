@@ -35,7 +35,7 @@ const directory: SkillRecord = {
 
 describe('uninstall', () => {
   beforeEach(() => {
-    vi.mocked(resolveUserScope).mockReset().mockReturnValue('/user/.claude/skills');
+    vi.mocked(resolveUserScope).mockReset().mockResolvedValue('/user/.claude/skills');
     vi.mocked(resolveProjectScope).mockReset().mockResolvedValue('/repo/.claude/skills');
     vi.mocked(safeRemoveSkill).mockReset().mockResolvedValue(undefined);
   });

@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CatalogEntry, ValidationReceipt } from '../types/data';
 import { treeHashFromGit } from '../trust/safe-fs';
+import { digestSha256Hex } from '../util/web-crypto-helpers';
 import {
   assertReceiptFresh,
   ExpiredReceiptError,
@@ -112,7 +112,7 @@ describe('validateAndIssueReceipt', () => {
     });
     expect(first.fileListHash).toBe(second.fileListHash);
     expect(first.fileListHash).toBe(
-      createHash('sha256').update('skills/skill/SKILL.md').digest('hex'),
+      await digestSha256Hex(new TextEncoder().encode('skills/skill/SKILL.md')),
     );
   });
 

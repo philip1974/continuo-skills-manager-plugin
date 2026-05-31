@@ -20,7 +20,7 @@ export async function uninstall(
 ): Promise<void> {
   let root: string | null;
   if (record.scope === 'user') {
-    root = resolveUserScope();
+    root = await resolveUserScope(app);
   } else {
     root = await resolveProjectScope(app);
   }

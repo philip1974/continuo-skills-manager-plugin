@@ -1,6 +1,6 @@
-import { sep } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { CoPluginApp } from '../types/sdk-shim';
+import { sep } from '../util/path-polyfill';
 import { scanScope } from './index';
 
 type DirEntry = Awaited<ReturnType<CoPluginApp['fs']['listDir']>>[number];

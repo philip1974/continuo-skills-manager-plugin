@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
-import { sep } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { CoPluginApp } from '../types/sdk-shim';
+import { sep } from '../util/path-polyfill';
 import { BinaryBlobRejectedError } from '../util/utf8-validate';
+import { concatBytes, digestSha256Hex } from '../util/web-crypto-helpers';
 import {
   assertInsideSkillsRoot,
   DirectoryAssetsNotSupportedError,
@@ -15,6 +15,7 @@ import {
 } from './safe-fs';
 
 const encoder = new TextEncoder();
+const nul = new Uint8Array([0]);
 
 async function* shellChunks(stdout: string, stderr = '') {
   if (stdout) yield { stream: 'stdout' as const, chunk: Buffer.from(stdout) };
@@ -42,6 +43,7 @@ function makeApp(opts?: {
   const blobs = opts?.blobs ?? {};
   return {
     fs: {
+      userHome: vi.fn(async () => '/Users/test-user'),
       requestScope: vi.fn(),
       readFile: vi.fn(),
       writeFile: vi.fn(),
@@ -76,15 +78,17 @@ function makeApp(opts?: {
   } as unknown as CoPluginApp;
 }
 
-function expectedHash(files: { path: string; content: Uint8Array }[]): string {
-  const hash = createHash('sha256');
+async function expectedHash(
+  files: { path: string; content: Uint8Array }[],
+): Promise<string> {
+  const parts: Uint8Array[] = [];
   for (const file of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
-    hash.update(Buffer.from(file.path, 'utf-8'));
-    hash.update(Buffer.from([0]));
-    hash.update(file.content);
-    hash.update(Buffer.from([0]));
+    parts.push(encoder.encode(file.path));
+    parts.push(nul);
+    parts.push(file.content);
+    parts.push(nul);
   }
-  return hash.digest('hex');
+  return await digestSha256Hex(concatBytes(parts));
 }
 
 describe('assertInsideSkillsRoot', () => {
@@ -226,7 +230,7 @@ describe('treeHashFromGit', () => {
       lsStdout: '100644 blob a1\tSKILL.md\n',
     });
     await expect(treeHashFromGit(app, '/repo', 'FETCH_HEAD', '')).resolves.toBe(
-      expectedHash([{ path: 'SKILL.md', content }]),
+      await expectedHash([{ path: 'SKILL.md', content }]),
     );
   });
 
@@ -238,7 +242,7 @@ describe('treeHashFromGit', () => {
       lsStdout: '100644 blob b2\tz/SKILL.md\n100644 blob a1\ta/SKILL.md\n',
     });
     await expect(treeHashFromGit(app, '/repo', 'HEAD', '.')).resolves.toBe(
-      expectedHash([
+      await expectedHash([
         { path: 'a/SKILL.md', content: alpha },
         { path: 'z/SKILL.md', content: beta },
       ]),
@@ -253,7 +257,7 @@ describe('treeHashFromGit', () => {
         '040000 tree deadbeef\tsubdir\n100644 blob aaa\tREADME.md\n100644 blob c3\tsubdir/SKILL.md\n',
     });
     await expect(treeHashFromGit(app, '/repo', 'HEAD', 'subdir')).resolves.toBe(
-      expectedHash([{ path: 'subdir/SKILL.md', content }]),
+      await expectedHash([{ path: 'subdir/SKILL.md', content }]),
     );
   });
 

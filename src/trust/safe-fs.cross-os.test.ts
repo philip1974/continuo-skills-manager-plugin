@@ -1,4 +1,3 @@
-import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { treeHashFromGit } from './safe-fs';
 
@@ -65,7 +64,7 @@ function makeApp(spawn: typeof import('node:child_process').spawn) {
 }
 
 describe('treeHashFromGit cross-OS determinism (T-cross-os)', () => {
-  const fixturePath = resolve(process.cwd(), '__fixtures__/skill-bare.git');
+  const fixturePath = `${process.cwd()}/__fixtures__/skill-bare.git`;
 
   beforeAll(async () => {
     if (!(await fixtureExists(fixturePath))) {

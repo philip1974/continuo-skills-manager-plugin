@@ -1,8 +1,8 @@
 // Scan skill roots and return normalized SkillRecord values.
 
-import { sep } from 'node:path';
 import type { CoPluginApp } from '../types/sdk-shim';
 import type { ScopeRoot, SkillRecord } from '../types/data';
+import { sep } from '../util/path-polyfill';
 
 const SKILL_MD = 'SKILL.md';
 

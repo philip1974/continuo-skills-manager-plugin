@@ -1,9 +1,9 @@
 // Validate a cloned entry and issue a short-lived install receipt.
 
-import { createHash, randomBytes } from 'node:crypto';
 import type { CatalogEntry, ScopeRoot, ValidationReceipt } from '../types/data';
 import type { CoPluginApp } from '../types/sdk-shim';
 import { treeHashFromGit } from '../trust/safe-fs';
+import { digestSha256Hex } from '../util/web-crypto-helpers';
 
 export class HashMismatchError extends Error {
   readonly code = 'HASH_MISMATCH';
@@ -33,6 +33,17 @@ export class ExpiredReceiptError extends Error {
 }
 
 const RECEIPT_TTL_MS = 5 * 60 * 1000;
+const encoder = new TextEncoder();
+
+function randomHex(byteLength: number): string {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    out += bytes[i]!.toString(16).padStart(2, '0');
+  }
+  return out;
+}
 
 export async function validateAndIssueReceipt(
   app: CoPluginApp,
@@ -53,9 +64,9 @@ export async function validateAndIssueReceipt(
     throw new HashMismatchError(args.entry.hash, computed);
   }
 
-  const fileListHash = createHash('sha256')
-    .update(`${args.entry.subpath ?? ''}/SKILL.md`)
-    .digest('hex');
+  const fileListHash = await digestSha256Hex(
+    encoder.encode(`${args.entry.subpath ?? ''}/SKILL.md`),
+  );
 
   return {
     ref: args.entry.sha,
@@ -64,7 +75,7 @@ export async function validateAndIssueReceipt(
     fileListHash,
     scope: args.scope,
     finalTarget: args.finalTarget,
-    nonce: randomBytes(16).toString('hex'),
+    nonce: randomHex(16),
     expiresAt: Date.now() + RECEIPT_TTL_MS,
   };
 }

@@ -1,6 +1,5 @@
 // Fetch, validate, and cache catalog.json through hardcoded allowlist constants.
 
-import { z } from 'zod';
 import {
   CATALOG_HOST_ALLOWLIST,
   CATALOG_MAX_SIZE_BYTES,
@@ -8,9 +7,11 @@ import {
   DEFAULT_CATALOG_URL,
   isPlaceholderCatalogUrl,
 } from '../config/catalog-allowlist';
-import type { CoPluginApp } from '../types/sdk-shim';
+import { co, type CoPluginApp } from '../types/sdk-shim';
 import type { CatalogIndex } from '../types/data';
 import { assertUrlInAllowlist } from '../util/url-allowlist';
+
+const { z } = co;
 
 const CACHE_KEY_PREFIX = 'catalog:';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;

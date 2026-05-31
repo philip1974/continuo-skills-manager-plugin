@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "main": "dist/main.js",
   "permissions": ["fs", "network", "shell"],
-  "minLMVersion": "0.2.0",
+  "minLMVersion": "0.2.1",
   "description": "GUI manager for ~/.claude/skills/ (User + Project scope; SKILL.md preview required; v0.1)"
 }

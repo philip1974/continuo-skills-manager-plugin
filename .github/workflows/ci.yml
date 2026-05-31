@@ -1,8 +1,10 @@
 name: CI
 
 on:
-  push: { branches: [main] }
-  pull_request: { branches: [main] }
+  pull_request:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
   test:
@@ -26,6 +28,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Build (esbuild + bundle gate)
+        run: pnpm build
+      - name: Bundle metafile assertion
+        run: |
+          node -e "const m=require('./dist/main.js.meta.json'); const o=m.outputs['dist/main.js']; const ALLOWED_HOST=new Set(['react','react-dom','zod','react/jsx-runtime','react/jsx-dev-runtime']); const isNode=p=>p.startsWith('node:'); const forbidden=o.imports.filter(i=>!ALLOWED_HOST.has(i.path)&&!isNode(i.path)); if(forbidden.length){console.error('forbidden externals:',forbidden);process.exit(1)} console.log('CI bundle gate OK -',o.imports.length,'allowed externals')"
       - name: Trust gates (ts-morph)
         run: bash tools/check-trust-gates.sh
         if: matrix.os != 'windows-latest'  # bash script; Windows runs via WSL or skip - TBD per Op8

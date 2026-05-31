@@ -1,6 +1,6 @@
-import { sep } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { CoPluginApp } from '../types/sdk-shim';
+import { sep } from '../util/path-polyfill';
 import {
   PROJECT_SCOPE_CWD_KEY,
   resolveProjectScope,
@@ -19,6 +19,9 @@ function makeApp(opts?: {
 }): CoPluginApp {
   const data = opts?.data ?? {};
   return {
+    fs: {
+      userHome: vi.fn(async () => '/Users/test-user'),
+    },
     dataStore: {
       load: vi.fn(async () => data),
       save: vi.fn(async () => undefined),
@@ -39,8 +42,8 @@ function makeApp(opts?: {
 }
 
 describe('path resolver', () => {
-  it('resolves the user scope to an absolute .claude skills path', () => {
-    const userScope = resolveUserScope();
+  it('resolves the user scope to an absolute .claude skills path', async () => {
+    const userScope = await resolveUserScope(makeApp());
     expect(userScope).toContain(`${sep}.claude${sep}skills`);
     expect(userScope.startsWith(sep)).toBe(true);
   });

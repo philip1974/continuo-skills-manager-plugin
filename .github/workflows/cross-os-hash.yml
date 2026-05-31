@@ -1,9 +1,10 @@
 name: cross-os-hash
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
   hash-determinism:

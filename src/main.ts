@@ -1,26 +1,50 @@
-import * as React from 'react';
-import type { CoPluginApp } from './types/sdk-shim';
-import { Plugin } from './types/sdk-shim';
+import { co, type CoPluginApp } from './types/sdk-shim';
 import { PanelMain } from './ui/PanelMain';
 import { SettingsTab } from './ui/SettingsTab';
 
-export default class SkillsManagerPlugin extends Plugin {
-  declare readonly app: CoPluginApp;
-  private disposables: { dispose: () => void }[] = [];
+const { Plugin, React } = co;
 
-  async onload(): Promise<void> {
+// Continuo coApp.dataStore exposes read(pluginId)/write(pluginId, data); plugin
+// internally calls dataStore.load()/save(data) without pluginId. Wrap once at
+// the boundary so all downstream code keeps its no-arg API.
+function makeScopedApp(app: CoPluginApp, pluginId: string): CoPluginApp {
+  const realDataStore = app.dataStore as {
+    read(id: string): Promise<unknown>;
+    write(id: string, data: unknown): Promise<void>;
+  };
+  return {
+    ...app,
+    dataStore: {
+      load: async () => {
+        const v = await realDataStore.read(pluginId);
+        return (v ?? {}) as Record<string, unknown>;
+      },
+      save: async (data: unknown) => {
+        await realDataStore.write(pluginId, data);
+      },
+    },
+  };
+}
+
+export default class SkillsManagerPlugin extends Plugin {
+  constructor(app: CoPluginApp, manifest: any) {
+    super(app, manifest);
+  }
+
+  override async onload(): Promise<void> {
+    const scopedApp = makeScopedApp(this.app, this.manifest.id);
     try {
       const panel = this.app.panels.register({
-        id: 'skills-manager',
+        type: 'skills-manager',
         title: 'Skills',
-        component: () => React.createElement(PanelMain, { app: this.app }),
+        factory: () => React.createElement(PanelMain, { app: scopedApp }),
       });
       this.disposables.push(panel);
 
       const settingTab = this.app.settingTabs.register({
         id: 'skills-manager-settings',
         title: 'Skills Manager',
-        component: () => React.createElement(SettingsTab, { app: this.app }),
+        render: () => React.createElement(SettingsTab, { app: scopedApp }),
       });
       this.disposables.push(settingTab);
     } catch (err) {
@@ -31,7 +55,7 @@ export default class SkillsManagerPlugin extends Plugin {
       const fallback = this.app.settingTabs.register({
         id: 'skills-manager-settings-error',
         title: 'Skills Manager (degraded)',
-        component: () =>
+        render: () =>
           React.createElement(
             'div',
             { 'data-testid': 'degraded-banner', role: 'alert' },
@@ -42,7 +66,7 @@ export default class SkillsManagerPlugin extends Plugin {
     }
   }
 
-  async onunload(): Promise<void> {
+  override async onunload(): Promise<void> {
     for (const disposable of this.disposables.reverse()) {
       try {
         disposable.dispose();
@@ -52,4 +76,6 @@ export default class SkillsManagerPlugin extends Plugin {
     }
     this.disposables = [];
   }
+
+  private disposables: { dispose: () => void }[] = [];
 }

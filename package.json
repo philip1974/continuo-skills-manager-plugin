@@ -5,9 +5,11 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc",
+    "prebuild": "rm -rf dist",
+    "build": "node build.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "install:dev": "pnpm build && bash scripts/dev-install.sh",
     "trust-gate": "bash tools/check-trust-gates.sh",
     "trust-gates": "bash tools/check-trust-gates.sh",
     "fixture:gen": "bash tools/generate-fixture-bare.sh"
@@ -18,16 +20,19 @@
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.21.5",
     "jsdom": "^29.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "ts-morph": "^25.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "zod": "^3.23.8"
   },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-markdown": "^9.1.0",
-    "zod": "^4.4.3"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

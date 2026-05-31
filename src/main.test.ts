@@ -8,6 +8,10 @@ function makePlugin(app: CoPluginApp): SkillsManagerPlugin {
     configurable: true,
     value: app,
   });
+  Object.defineProperty(plugin, 'manifest', {
+    configurable: true,
+    value: { id: 'com.continuo.skills-manager' },
+  });
   return plugin;
 }
 
@@ -74,9 +78,9 @@ describe('SkillsManagerPlugin', () => {
       expect.objectContaining({ id: 'skills-manager-settings-error' }),
     );
     const spec = vi.mocked(app.settingTabs.register).mock.calls[0]?.[0] as {
-      component: () => React.ReactElement;
+      render: () => React.ReactElement;
     };
-    expect(spec.component().props['data-testid']).toBe('degraded-banner');
+    expect(spec.render().props['data-testid']).toBe('degraded-banner');
   });
 
   it('saves the panel disposable', async () => {

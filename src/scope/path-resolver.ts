@@ -1,14 +1,14 @@
 // Resolve user and project skill roots through Plan 05 SDK surfaces.
 
-import { homedir } from 'node:os';
-import { sep } from 'node:path';
 import type { CoPluginApp } from '../types/sdk-shim';
 import { execStreamCollect } from '../util/exec-stream-helper';
+import { join } from '../util/path-polyfill';
 
 const PROJECT_SCOPE_CWD_KEY = 'config:project-scope-cwd';
 
-export function resolveUserScope(): string {
-  return `${homedir()}${sep}.claude${sep}skills`;
+export async function resolveUserScope(app: CoPluginApp): Promise<string> {
+  const home = await app.fs.userHome();
+  return join(home, '.claude', 'skills');
 }
 
 export async function resolveProjectScope(
@@ -27,7 +27,7 @@ export async function resolveProjectScope(
     return null;
   }
 
-  return `${cwd}${sep}.claude${sep}skills`;
+  return join(cwd, '.claude', 'skills');
 }
 
 export async function setProjectScopeCwd(

@@ -1,12 +1,16 @@
 // Collect Plan 05 app.shell.execStream chunks and completion into one result.
+//
+// Plugin runs in sandboxed renderer — no Node Buffer / NodeJS.Signals globals.
+// Use Uint8Array + concatBytes (web-crypto-helpers) for Web-API compat.
 
 import type { CoPluginApp } from '../types/sdk-shim';
+import { concatBytes } from './web-crypto-helpers';
 
 export interface ExecResult {
-  stdout: Buffer;
-  stderr: Buffer;
+  stdout: Uint8Array;
+  stderr: Uint8Array;
   exitCode: number | null;
-  signal: NodeJS.Signals | null;
+  signal: string | null;
 }
 
 export async function execStreamCollect(
@@ -26,8 +30,8 @@ export async function execStreamCollect(
 
   const exit = await done;
   return {
-    stdout: Buffer.concat(stdoutParts),
-    stderr: Buffer.concat(stderrParts),
+    stdout: concatBytes(stdoutParts),
+    stderr: concatBytes(stderrParts),
     exitCode: exit.exitCode,
     signal: exit.signal,
   };

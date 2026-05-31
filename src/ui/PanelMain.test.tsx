@@ -39,11 +39,15 @@ const secondUserSkill: SkillRecord = {
 };
 
 function mockApp() {
-  return {} as never;
+  return {
+    fs: {
+      requestScope: vi.fn().mockResolvedValue('grant'),
+    },
+  } as never;
 }
 
 beforeEach(() => {
-  vi.mocked(resolveUserScope).mockReset().mockReturnValue('/user/.claude/skills');
+  vi.mocked(resolveUserScope).mockReset().mockResolvedValue('/user/.claude/skills');
   vi.mocked(resolveProjectScope).mockReset().mockResolvedValue(null);
   vi.mocked(scanScope).mockReset().mockResolvedValue([]);
   vi.mocked(uninstall).mockReset().mockResolvedValue(undefined);
@@ -60,8 +64,8 @@ describe('PanelMain', () => {
     render(<PanelMain app={mockApp()} />);
     const section = await screen.findByTestId('project-scope-section');
     expect(section.getAttribute('aria-disabled')).toBe('true');
-    expect(section.getAttribute('title')).toContain('Configure Project skills root');
-    expect(screen.getByTestId('project-disabled-msg')).not.toBeNull();
+    const msg = await screen.findByTestId('project-disabled-msg');
+    expect(msg.textContent ?? '').toContain('Configure Project skills root');
   });
 
   it('enables project section when project scope resolves', async () => {
@@ -71,7 +75,7 @@ describe('PanelMain', () => {
     await waitFor(() => {
       expect(section.getAttribute('aria-disabled')).toBe('false');
     });
-    expect(section.getAttribute('title')).toBeNull();
+    expect(screen.queryByTestId('project-disabled-msg')).toBeNull();
   });
 
   it('shows empty user scope copy', async () => {
@@ -103,7 +107,7 @@ describe('PanelMain', () => {
     render(<PanelMain app={mockApp()} />);
     await userEvent.click((await screen.findByText('Uninstall')) as HTMLElement);
     await waitFor(() => {
-      expect(uninstall).toHaveBeenCalledWith({}, userSkill);
+      expect(uninstall).toHaveBeenCalledWith(expect.anything(), userSkill);
       expect(scanScope).toHaveBeenCalledTimes(2);
     });
   });

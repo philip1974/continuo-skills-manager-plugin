@@ -10,6 +10,225 @@ Command:
 git -C ~/Desktop/Continuo rev-parse HEAD
 ```
 
+## A-SDK-adapter (topic-04, Op1 Discovery)
+
+Date: 2026-05-30
+Continuo HEAD: 32e7db07b54aabc4e6562022f66a32df45a22979
+Status: FAIL-1g
+
+### 1a Versions
+- react: ^19.0.0
+- react-dom: ^19.0.0
+- zod: ^3.23.8
+
+### 1b co-app.ts
+- APP_VERSION: 0.2.0
+- Not an assembly point: `/Users/RiGang/Desktop/Continuo/src/plugins/co-app.ts` exports the singleton `coApp: CoApp` with registries and `version`, but has no `globalThis.co`, `window.co`, `Object.defineProperty(..., 'co')`, or preload exposure.
+
+### 1c Plugin base class
+- constructor: `constructor(app: CoPluginApp, manifest: PluginManifest)`
+- onload return: `void | Promise<void>`
+- onunload return: `void | Promise<void>`
+
+### 1d loader contract
+- defaultImporter:
+  ```ts
+  const defaultImporter = (url: string) =>
+    import(/* @vite-ignore */ url) as Promise<unknown>;
+  ```
+- callsite: `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:264`
+
+### 1e PluginManager loading chain
+- `activateEntry(entry)` clears previous `entry.error` / `entry.warning`, then calls `loadPluginModule({ moduleUrl, manifest, importer: (url) => this.host.importModule(url) })`.
+- `loadPluginModule` imports the module first and validates `default` as a `Plugin` subclass before returning `{ ok: true, PluginClass }`.
+- Permission authorization happens after successful import.
+- `createScopedApp(...)` and `new Ctor(scopedApp, entry.manifest)` happen after import and permission handling.
+- Therefore plugin module top-level code runs before `new Ctor(scopedApp, manifest)`.
+
+### 1f APP_VERSION
+- value: 0.2.0; manifest minLMVersion 0.2.0 met: yes
+
+### 1g [HARD GATE] globalThis.co assembly
+- grep results:
+  ```text
+  $ rg -nP "globalThis\.co\s*[:=]" /Users/RiGang/Desktop/Continuo/src /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+
+  $ rg -nP "window\.co\s*=" /Users/RiGang/Desktop/Continuo/src /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+
+  $ rg -nP "Object\.defineProperty\(\s*(globalThis|window)\s*,\s*['\"]co['\"]" /Users/RiGang/Desktop/Continuo/src /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+
+  $ rg -nP "\(globalThis as any\)\.co\s*=" /Users/RiGang/Desktop/Continuo/src /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+
+  $ rg -nP "contextBridge\.exposeInMainWorld\(\s*['\"]co['\"]" /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+
+  $ rg -nP "\.co\s*=\s*\{[^}]*Plugin\b" /Users/RiGang/Desktop/Continuo/src /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+
+  $ rg -nP "co\s*[:=]\s*\{[^}]*PermissionError\b" /Users/RiGang/Desktop/Continuo/src /Users/RiGang/Desktop/Continuo/electron
+  <no output>
+  ```
+- assembly point: NOT-FOUND
+- timing: n/a. Current observed loader chain imports plugin module before constructor injection; no prior global `co` assembly point was found in `src` or `electron`.
+- verdict: NOT-FOUND
+
+### 1h [HARD GATE] listPluginDirs fs impl
+- impl location: not evaluated because 1g hard gate failed.
+- fs API: n/a
+- symlink behavior: n/a
+- verdict: n/a
+
+---
+
+## A-SDK-adapter-round2 (topic-04, Op1 EXTENDED Discovery)
+
+Date: 2026-05-30
+Continuo HEAD: 32e7db07b54aabc4e6562022f66a32df45a22979
+
+### 1i vite.config
+- files found:
+  - Root/electron command scope:
+    - `ls /Users/RiGang/Desktop/Continuo/vite.config* /Users/RiGang/Desktop/Continuo/vite.*.config*`: zsh no-match; no root Vite config matched.
+    - `ls /Users/RiGang/Desktop/Continuo/electron/vite.config*`: zsh no-match; no electron Vite config matched.
+  - Broader read to catch missed config:
+    - `/Users/RiGang/Desktop/Continuo/examples/lokus/vite.config.js` (69 lines, read full)
+- file contents excerpt (define section):
+  ```js
+  // /Users/RiGang/Desktop/Continuo/examples/lokus/vite.config.js
+  export default defineConfig(async () => ({
+    plugins: [react()],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+        "jsxgraph/distrib/jsxgraph.css": path.resolve(__dirname, "node_modules/jsxgraph/distrib/jsxgraph.css"),
+      },
+    },
+    optimizeDeps: { esbuildOptions: { target: 'es2022' } },
+    build: {
+      target: 'es2022',
+      sourcemap: 'hidden',
+      chunkSizeWarningLimit: 3000,
+      rollupOptions: { output: { manualChunks(id) { /* vendor chunks */ } } },
+    },
+    worker: { format: 'es' },
+    clearScreen: false,
+    server: { port: 1420, strictPort: true, host: host || false, hmr: host ? { protocol: "ws", host, port: 1421 } : undefined },
+  }));
+  ```
+- `define:` block: none found.
+- globalThis.co inject: no; no `globalThis.co`, `__co`, `Plugin`, `SDK`, `coApp`, `lmApi`, or `__lmApi` define injection found in the read Vite config.
+- verdict: NOT-FOUND
+
+### 1j renderer entry
+- files read:
+  - `/Users/RiGang/Desktop/Continuo/src/main.tsx` (245 lines, read full)
+  - `/Users/RiGang/Desktop/Continuo/index.html` (30 lines, read full)
+  - `/Users/RiGang/Desktop/Continuo/electron/renderer/`: directory not found
+  - `/Users/RiGang/Desktop/Continuo/src/main.ts`: file not found
+- assembly grep result on entry chain:
+  ```text
+  /Users/RiGang/Desktop/Continuo/index.html:28:<script type="module" src="/src/main.tsx"></script>
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:35:captureLmApi();
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:37:// M-Plugin v4.1 SDK 暴露:user-installed plugin 通过 globalThis.co 拿到
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:42:(globalThis as unknown as {
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:44:    Plugin: typeof Plugin;
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:45:    React: typeof ReactNS;
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:46:    PermissionError: typeof PermissionError;
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:47:    z: typeof zodNS;
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:52:  PermissionError,
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:128:const userPluginManager = new PluginManager(coApp, {
+  /Users/RiGang/Desktop/Continuo/src/main.tsx:135:void userPluginManager.init().catch((err) => {
+  ```
+- assembly excerpt:
+  ```ts
+  (globalThis as unknown as {
+    co: {
+      Plugin: typeof Plugin;
+      React: typeof ReactNS;
+      PermissionError: typeof PermissionError;
+      z: typeof zodNS;
+    };
+  }).co = {
+    Plugin,
+    React: ReactNS,
+    PermissionError,
+    z: zodNS,
+  };
+  ```
+- timing: `index.html` loads `/src/main.tsx`. In `main.tsx`, `captureLmApi()` and the `globalThis.co` assignment run synchronously at module evaluation lines 35-53. `userPluginManager.init()` runs later at line 135, after `new PluginManager(...)` at line 128; dynamic plugin import is inside PluginManager activation. Therefore `globalThis.co` exists before plugin dynamic import.
+- verdict: GLOBALTHIS-CO-FOUND-IN-RENDERER
+
+### 1k preload integrals
+- files in electron/preload/:
+  - `/Users/RiGang/Desktop/Continuo/electron/preload/index.ts` (443 lines, read full)
+  - `/Users/RiGang/Desktop/Continuo/electron/preload/plugin-data.preload.ts` (14 lines, read full)
+  - `/Users/RiGang/Desktop/Continuo/electron/preload/plugin-fs.preload.ts` (137 lines, read full)
+  - `/Users/RiGang/Desktop/Continuo/electron/preload/plugin-shell-stream.preload.ts` (115 lines, read full)
+- exposeInMainWorld calls (all keys):
+  - `{ file: "electron/preload/index.ts", line: 430, key: "__lmApi" }`
+  - `{ file: "electron/preload/index.ts", line: 442, key: "__continuoE2E" }`
+- `__lmApi` contents: exposes only `claimRendererApi(): ContinuoApi | null`. First call returns the renderer IPC bridge `api`; later calls return `null`.
+- claimed `api` fields/types:
+  - `ping(): "pong"`
+  - `layout`: read/write/onFlushRequest/sendFlushAck
+  - `system`: `windowId`
+  - `popout`: open/onClosed
+  - `explorer`: read/write
+  - `fs`: listDir/readFile/writeFile/writeBinary/rename/remove/createFile/createDir/trash/reveal/move/copy/selectDirectory/watchDir/unwatchDir/onDirChanged
+  - `terminal`: create/write/resize/interrupt/kill/destroy/listSessions/remove/attachRejected/updateCwd/readHistory/onSessionsChanged/onData/onExit/onOverflow/onOverflowRecovered
+  - `plugins`: listDirs/readEnabled/writeEnabled/readPermissions/writePermissions/onChanged/onProtocolUrl/installFromGit/uninstall
+  - `shell`: exec/openExternal
+  - `window`: create/notifyRoot/getPathForFile
+  - `agentAuth`, `notify`, `i18n`, `mcp`, `pluginMcp`
+  - `pluginDataRaw`, `pluginFsRaw`, `pluginShellStreamRaw`
+- contains Plugin/React/z/PermissionError exposure: no. Those are not in preload `__lmApi`; they are assembled in renderer `src/main.tsx` into `globalThis.co`.
+- verdict: NEITHER
+
+### 1l sample plugin business logic
+- file: `~/Library/Application Support/Continuo/plugins/com.example.sample/main.js`
+- size: 238 lines
+- globalThis.co destructure: line 9, scope: module-top
+  ```js
+  const { Plugin, React, PermissionError, z } = globalThis.co;
+  const h = React.createElement;
+  ```
+- usage of Plugin:
+  - line 9 destructures `Plugin` from `globalThis.co`
+  - line 12 `export default class SamplePlugin extends Plugin`
+- usage of React:
+  - line 9 destructures `React`
+  - line 10 `const h = React.createElement`
+  - line 39, 60, 78, 81, 82, 83, 130 use `h(...)` for UI nodes/icons/settings render
+- usage of z:
+  - line 9 destructures `z`
+  - line 219 `inputSchema: z.object({ text: z.string() }).strict()`
+- usage of PermissionError:
+  - line 9 destructures `PermissionError`
+  - lines 113, 172, 193, 227 check `err instanceof PermissionError`
+- default export form:
+  ```js
+  export default class SamplePlugin extends Plugin {
+    async onload() {
+      // contributions registered here
+    }
+  }
+  ```
+- try-catch wrap: no around top-level destructure. Try/catch exists only inside plugin behavior paths: clipboard at lines 109-118, fs at 165-177, network at 186-198, MCP registration at 207-234.
+
+### Composite verdict
+- 1i: NOT-FOUND
+- 1j: FOUND
+- 1k: NEITHER
+- 1l: top-level destructure: yes — sample relies on renderer `globalThis.co` being set before dynamic import; `src/main.tsx` confirms that path.
+
+### Sentinel decision (deferred to 1m user input for final)
+
+`###OP1-EXT-PATH-A### (pending 1m)`
+
 Output:
 
 ```text
@@ -818,3 +1037,16 @@ a0_8_action0:
         }
       }
 ```
+
+## A-web-api-refactor (topic-05, Op1 Discovery)
+
+- 1a `/Users/RiGang/Desktop/Continuo/src/plugins/types.ts:118` — verified: plugin-facing fs API is `PluginFsApi`; current methods are `requestScope`, `readFile`, `writeFile`, `listDir`, `stat`, `lstat`, `realpath`, `mkdir`, `rename`, `rm`, `cp`, `readGitBlob`, `atomicReplaceWithinScope`; `userHome` is not present yet.
+- 1b `/Users/RiGang/Desktop/Continuo/electron/shared/plugin-fs-channels.ts:4` — verified: `PLUGIN_FS_CHANNELS` is the shared channel constant source used by preload and main IPC.
+- 1c `/Users/RiGang/Desktop/Continuo/electron/main/services/plugin-fs.service.ts:49` — verified: main plugin-fs handlers are registered in `registerPluginFsHandlers`; existing handlers use `ipcMain.handle('plugin-fs:*', ...)`.
+- 1d `/Users/RiGang/Desktop/Continuo/src/plugins/scoped-app.ts:48` — verified: scoped fs proxy is built by `makeFs`; `createScopedApp` wires it at `/Users/RiGang/Desktop/Continuo/src/plugins/scoped-app.ts:262`, and `PluginManager` injects it at `/Users/RiGang/Desktop/Continuo/src/plugins/PluginManager.ts:315`.
+- 1e `/Users/RiGang/Desktop/Continuo/src/plugins/co-app.ts:25` — verified: `APP_VERSION` literal currently equals `0.2.0`.
+- 1f `/Users/RiGang/Desktop/Continuo/electron/preload/plugin-fs.preload.ts:22` — verified: `PluginFsRaw` exposes the raw plugin-fs methods; `userHome` is not exposed yet.
+- 1g `/Users/RiGang/Desktop/Continuo/examples/sample-plugin/manifest.json:8` — verified: sample plugin `minLMVersion` is `0.2.0`; `/Users/RiGang/Desktop/Continuo/examples/mcp-demo-plugin/manifest.json:8` is `0.1.0`.
+- 1h `/Users/RiGang/Desktop/Continuo/electron/shared/plugin-fs-channels.ts:4` — verified: channel list exists; current fs channels are register/unregister, read/write/list/stat/lstat/realpath/mkdir/rename/rm/cp/read-git-blob/atomic-replace/request-scope/scope-decision plus scope-request/scope-updated events; no user-home channel yet.
+- 1i `/Users/RiGang/Desktop/Continuo/package.json` — verified: package `version` is `0.2.0`.
+- 1j `/Users/RiGang/Desktop/Continuo/electron/main/services/plugin-fs.service.ts:56` — verified: token identity pattern is `identityRegistry.register(pluginId, event.sender.id)` and `identityRegistry.resolve(token, event.sender.id)` at `/Users/RiGang/Desktop/Continuo/electron/main/services/plugin-fs.service.ts:318`.

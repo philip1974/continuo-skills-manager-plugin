@@ -2,6 +2,7 @@
 
 import type { CoPluginApp } from '../types/sdk-shim';
 import { execStreamCollect } from '../util/exec-stream-helper';
+import { decodeUtf8 } from '../util/web-crypto-helpers';
 
 export class UnsupportedHostError extends Error {
   readonly code = 'UNSUPPORTED_HOST';
@@ -43,7 +44,7 @@ export async function cloneAtSha(
     cwd: args.tmpDir,
   });
   if (init.exitCode !== 0) {
-    throw new CloneError('init', init.stderr.toString('utf-8'));
+    throw new CloneError('init', decodeUtf8(init.stderr));
   }
 
   const fetch = await execStreamCollect(
@@ -53,7 +54,7 @@ export async function cloneAtSha(
     { cwd: args.tmpDir },
   );
   if (fetch.exitCode !== 0) {
-    throw new CloneError('fetch', fetch.stderr.toString('utf-8'));
+    throw new CloneError('fetch', decodeUtf8(fetch.stderr));
   }
 
   const checkout = await execStreamCollect(
@@ -63,7 +64,7 @@ export async function cloneAtSha(
     { cwd: args.tmpDir },
   );
   if (checkout.exitCode !== 0) {
-    throw new CloneError('checkout', checkout.stderr.toString('utf-8'));
+    throw new CloneError('checkout', decodeUtf8(checkout.stderr));
   }
 
   const canonicalDir = await app.fs.realpath(args.tmpDir);

@@ -1,15 +1,13 @@
 // Business trust helpers. Plugin code should use these wrappers, not app.fs.* directly.
 
-import { createHash } from 'node:crypto';
-import {
-  basename,
-  dirname,
-  normalize as pathNormalize,
-  sep,
-} from 'node:path';
 import type { CoPluginApp } from '../types/sdk-shim';
 import { execStreamCollect } from '../util/exec-stream-helper';
+import { basename, dirname, normalize as pathNormalize, sep } from '../util/path-polyfill';
 import { decodeUtf8Strict } from '../util/utf8-validate';
+import { concatBytes, decodeUtf8, digestSha256Hex } from '../util/web-crypto-helpers';
+
+const encoder = new TextEncoder();
+const nul = new Uint8Array([0]);
 
 export class ScopeError extends Error {
   readonly code: 'SCOPE_ERROR' = 'SCOPE_ERROR';
@@ -136,12 +134,11 @@ export async function treeHashFromGit(
     { cwd: repoDir },
   );
   if (ls.exitCode !== 0) {
-    throw new Error(`git ls-tree failed: ${ls.stderr.toString('utf-8')}`);
+    throw new Error(`git ls-tree failed: ${decodeUtf8(ls.stderr)}`);
   }
 
   const blobs: { sha: string; path: string }[] = [];
-  const lines = ls.stdout
-    .toString('utf-8')
+  const lines = decodeUtf8(ls.stdout)
     .trim()
     .split('\n')
     .filter((line) => line);
@@ -157,14 +154,14 @@ export async function treeHashFromGit(
   }
 
   blobs.sort((a, b) => a.path.localeCompare(b.path));
-  const hasher = createHash('sha256');
+  const parts: Uint8Array[] = [];
   for (const blob of blobs) {
     const bytes = await app.fs.readGitBlob(repoDir, blob.sha);
     decodeUtf8Strict(bytes);
-    hasher.update(Buffer.from(blob.path, 'utf-8'));
-    hasher.update(Buffer.from([0]));
-    hasher.update(bytes);
-    hasher.update(Buffer.from([0]));
+    parts.push(encoder.encode(blob.path));
+    parts.push(nul);
+    parts.push(bytes);
+    parts.push(nul);
   }
-  return hasher.digest('hex');
+  return await digestSha256Hex(concatBytes(parts));
 }
