@@ -1,6 +1,6 @@
 {
   "id": "com.continuo.skills-manager",
-  "name": "Skills Manager",
+  "name": "Continuo CLAUDE Code skills manager",
   "version": "0.1.1",
   "main": "dist/main.js",
   "permissions": ["fs", "network", "shell"],

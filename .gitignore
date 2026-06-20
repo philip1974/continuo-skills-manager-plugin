@@ -1,5 +1,9 @@
 node_modules/
-dist/
+# Marketplace installs by cloning this repo and copying it verbatim (no build
+# step), so the runnable bundle must be committed. Keep only dist/main.js;
+# sourcemaps + esbuild metadata stay out of git.
+dist/*
+!dist/main.js
 *.log
 .DS_Store
 __fixtures__/test-skill.git/

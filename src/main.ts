@@ -43,7 +43,7 @@ export default class SkillsManagerPlugin extends Plugin {
 
       const settingTab = this.app.settingTabs.register({
         id: 'skills-manager-settings',
-        title: 'Skills Manager',
+        title: 'Continuo CLAUDE Code skills manager',
         render: () => React.createElement(SettingsTab, { app: scopedApp }),
       });
       this.disposables.push(settingTab);
@@ -54,12 +54,12 @@ export default class SkillsManagerPlugin extends Plugin {
       );
       const fallback = this.app.settingTabs.register({
         id: 'skills-manager-settings-error',
-        title: 'Skills Manager (degraded)',
+        title: 'Continuo CLAUDE Code skills manager (degraded)',
         render: () =>
           React.createElement(
             'div',
             { 'data-testid': 'degraded-banner', role: 'alert' },
-            `Skills Manager failed to start: ${(err as Error).message}`,
+            `Continuo CLAUDE Code skills manager failed to start: ${(err as Error).message}`,
           ),
       });
       this.disposables.push(fallback);

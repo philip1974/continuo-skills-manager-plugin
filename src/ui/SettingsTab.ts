@@ -146,7 +146,7 @@ export function SettingsTab({ app }: SettingsTabProps) {
     'div',
     {
       role: 'region',
-      'aria-label': 'Skills Manager Settings',
+      'aria-label': 'Continuo CLAUDE Code skills manager Settings',
       style: styles.region,
     },
     showPlaceholderBanner &&

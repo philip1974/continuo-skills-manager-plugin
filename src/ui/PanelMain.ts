@@ -520,7 +520,11 @@ export function PanelMain({ app }: PanelMainProps) {
 
   return h(
     'div',
-    { role: 'region', 'aria-label': 'Skills Manager', style: styles.region },
+    {
+      role: 'region',
+      'aria-label': 'Continuo CLAUDE Code skills manager',
+      style: styles.region,
+    },
     // User scope
     h(
       'section',
