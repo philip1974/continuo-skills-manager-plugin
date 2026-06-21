@@ -373,6 +373,14 @@ export function PanelMain({ app }: PanelMainProps) {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [catalog, setCatalog] = React.useState<CatalogIndex | null>(null);
   const [catalogError, setCatalogError] = React.useState<string | null>(null);
+  // Scope is granted once per app instance and stays granted for the session
+  // (host persists it). Re-running requestScope on every refreshTick (install /
+  // uninstall) is a redundant IPC round-trip — and historically re-prompted —
+  // so cache the grant decision per app and skip the request on later refreshes.
+  // Reset implicitly when the `app` prop identity changes.
+  const grantRef = React.useRef<{ app: CoPluginApp; granted: boolean } | null>(
+    null,
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -385,32 +393,41 @@ export function PanelMain({ app }: PanelMainProps) {
       // (or an ancestor) to permit creating its `skills` child.
       const ws = await app.workspace.getRoot();
       const projectClaude = ws ? `${ws}${sep}.claude` : null;
-      // Request 'rw' upfront — covers scan (read) + install (write) +
-      // mkdir of bootstrap dirs. One prompt vs separate per-op prompts.
-      const scopes: { path: string; mode: 'r' | 'rw' }[] = [
-        { path: uRoot, mode: 'rw' },
-      ];
-      if (projectClaude) scopes.push({ path: projectClaude, mode: 'rw' });
-      let granted = false;
-      try {
-        granted = (await app.fs.requestScope(scopes)) === 'grant';
-      } catch {
-        granted = false;
-      }
 
-      // Bootstrap project dirs so subsequent install (which mkdir's tmpDir
-      // under projectSkillsRoot) finds the parent chain in place.
-      // Best-effort: silent on mkdir failure (permissions / race etc).
-      if (granted && projectClaude && pRoot) {
+      let granted: boolean;
+      const cached = grantRef.current;
+      if (cached && cached.app === app) {
+        // Already requested for this app instance — reuse the decision, no prompt.
+        granted = cached.granted;
+      } else {
+        // Request 'rw' upfront — covers scan (read) + install (write) +
+        // mkdir of bootstrap dirs. One prompt vs separate per-op prompts.
+        const scopes: { path: string; mode: 'r' | 'rw' }[] = [
+          { path: uRoot, mode: 'rw' },
+        ];
+        if (projectClaude) scopes.push({ path: projectClaude, mode: 'rw' });
         try {
-          await app.fs.mkdir(projectClaude, { recursive: true });
+          granted = (await app.fs.requestScope(scopes)) === 'grant';
         } catch {
-          // ignore
+          granted = false;
         }
-        try {
-          await app.fs.mkdir(pRoot, { recursive: true });
-        } catch {
-          // ignore
+        grantRef.current = { app, granted };
+
+        // Bootstrap project dirs so subsequent install (which mkdir's tmpDir
+        // under projectSkillsRoot) finds the parent chain in place. Only needed
+        // once after the initial grant; idempotent + best-effort (silent on
+        // mkdir failure: permissions / race etc).
+        if (granted && projectClaude && pRoot) {
+          try {
+            await app.fs.mkdir(projectClaude, { recursive: true });
+          } catch {
+            // ignore
+          }
+          try {
+            await app.fs.mkdir(pRoot, { recursive: true });
+          } catch {
+            // ignore
+          }
         }
       }
 

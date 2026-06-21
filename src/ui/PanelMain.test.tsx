@@ -115,4 +115,22 @@ describe('PanelMain', () => {
       expect(scanScope).toHaveBeenCalledTimes(2);
     });
   });
+
+  it('requests scope only once across refreshes (no re-prompt on uninstall)', async () => {
+    vi.mocked(scanScope).mockResolvedValue([userSkill]);
+    const requestScope = vi.fn().mockResolvedValue('grant');
+    const app = {
+      fs: { requestScope, mkdir: vi.fn().mockResolvedValue(undefined) },
+      workspace: { getRoot: vi.fn().mockResolvedValue(null) },
+    } as never;
+
+    render(<PanelMain app={app} />);
+    await userEvent.click((await screen.findByText('Uninstall')) as HTMLElement);
+    // Uninstall bumps refreshTick → effect re-runs → rescan happens...
+    await waitFor(() => {
+      expect(scanScope).toHaveBeenCalledTimes(2);
+    });
+    // ...but the scope grant is reused, not re-requested (host persists it).
+    expect(requestScope).toHaveBeenCalledTimes(1);
+  });
 });
